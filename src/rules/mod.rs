@@ -235,6 +235,17 @@ plain_enum_mod!(modebid, EBid {
     Higher,
 });
 
+#[derive(new, PartialEq, Eq, Hash)]
+pub struct SActivelyPlayableRulesID {
+    str_id: String, // TODO Alternatives to String? Do we even need SActivelyPlayableRulesID?
+}
+
+impl fmt::Display for SActivelyPlayableRulesID {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.str_id.fmt(f)
+    }
+}
+
 pub trait TActivelyPlayableRules : TRules {
     box_clone_require!(TActivelyPlayableRules);
     fn priority(&self) -> VGameAnnouncementPriority;
@@ -253,6 +264,10 @@ pub trait TActivelyPlayableRules : TRules {
     }
     fn active_playerindex(&self) -> EPlayerIndex {
         verify!(self.playerindex()).unwrap()
+    }
+
+    fn rulesid(&self) -> SActivelyPlayableRulesID {
+        SActivelyPlayableRulesID::new(format!("{}", self))
     }
 }
 box_clone_impl_box!(TActivelyPlayableRules);

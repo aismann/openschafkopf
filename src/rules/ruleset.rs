@@ -13,6 +13,7 @@ use std::{
     fs::File,
     io::prelude::*,
     path::Path,
+    collections::HashSet,
 };
 use toml;
 
@@ -320,6 +321,22 @@ impl SRuleSet {
         let mut str_toml = String::new();
         let _n_bytes = file.read_to_string(&mut str_toml)?;
         Self::from_string(&str_toml)
+    }
+
+    pub fn actively_playable_rules_by_id(
+        &self,
+        epi: EPlayerIndex,
+        rulesid: &SActivelyPlayableRulesID,
+    ) -> Option<Box<TActivelyPlayableRules>> {
+        let mut setrulesid = HashSet::new();
+        let vecrules = allowed_rules(&self.avecrulegroup[epi]).collect::<Vec<_>>();
+        for rules in &vecrules {
+            // check that IDs are unique
+            verify!(setrulesid.insert(rules.rulesid()));
+        }
+        vecrules.iter()
+            .find(|rules| rules.rulesid()==*rulesid)
+            .map(|rules| TActivelyPlayableRules::box_clone(*rules))
     }
 }
 
