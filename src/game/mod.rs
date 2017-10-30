@@ -1,3 +1,5 @@
+pub mod vgamephase;
+
 use primitives::*;
 use rules::{
     *,
@@ -87,7 +89,8 @@ impl<'rules> SDealCards<'rules> {
     }
 }
 
-pub type SGameAnnouncements = SPlayersInRound<Option<Box<TActivelyPlayableRules>>>;
+pub type SGenericGameAnnouncements<T> = SPlayersInRound<Option<T>>;
+pub type SGameAnnouncements = SGenericGameAnnouncements<Box<TActivelyPlayableRules>>;
 
 #[derive(Debug)]
 pub struct SGamePreparations<'rules> {
@@ -111,6 +114,7 @@ pub fn random_hand(n_size: usize, veccard : &mut Vec<SCard>) -> SHand {
     })
 }
 
+#[derive(Debug)]
 pub enum VGamePreparationsFinish<'rules> {
     DetermineRules(SDetermineRules<'rules>),
     DirectGame(SGame),
@@ -427,6 +431,7 @@ impl SGame {
     }
 }
 
+#[derive(Clone, Serialize, Debug)]
 pub struct SGameResult {
     // TODO store all information about finished game
     pub accountbalance : SAccountBalance,
@@ -437,7 +442,7 @@ impl TGamePhase for SGameResult { // "absorbing state"
     type Finish = SGameResult;
 
     fn which_player_can_do_something(&self) -> Option<Self::ActivePlayerInfo> {
-        Some(())
+        None
     }
     fn finish_success(self) -> Self::Finish {
         self

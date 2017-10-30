@@ -10,7 +10,7 @@ use std::{
 };
 use util::*;
 
-plain_enum_mod!(modepi, EPlayerIndex {
+plain_enum_mod!(modepi, derive(Serialize, Deserialize,), map_derive(Serialize,), EPlayerIndex {
     EPI0, EPI1, EPI2, EPI3,
 });
 impl fmt::Display for EPlayerIndex {
@@ -29,7 +29,7 @@ impl FromStr for EPlayerIndex {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SPlayersInRound<T> {
     pub epi_first: EPlayerIndex,
     vect: ArrayVec<[T; 4]>,
@@ -135,6 +135,14 @@ impl<T> SPlayersInRound<T> {
             Some(&self[epi])
         } else {
             None
+        }
+    }
+    pub fn map<F, R>(&self, f: F) -> SPlayersInRound<R>
+        where F: FnMut(&T) -> R
+    {
+        SPlayersInRound{
+            epi_first: self.epi_first,
+            vect: self.vect.iter().map(f).collect(),
         }
     }
 }

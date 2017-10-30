@@ -54,7 +54,7 @@ impl VTrumpfOrFarbe {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SStoss {
     pub epi : EPlayerIndex,
 }
@@ -235,7 +235,7 @@ plain_enum_mod!(modebid, EBid {
     Higher,
 });
 
-#[derive(new, PartialEq, Eq, Hash)]
+#[derive(new, PartialEq, Eq, Hash, Serialize, Deserialize, Debug)]
 pub struct SActivelyPlayableRulesID {
     str_id: String, // TODO Alternatives to String? Do we even need SActivelyPlayableRulesID?
 }

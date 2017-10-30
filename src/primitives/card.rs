@@ -5,7 +5,7 @@ use std::{
 };
 use util::*;
 
-plain_enum_mod!{modefarbe, EFarbe {
+plain_enum_mod!{modefarbe, derive(Serialize, Deserialize,), map_derive(Serialize,), EFarbe {
     Eichel,
     Gras,
     Herz,
@@ -28,7 +28,7 @@ impl fmt::Display for EFarbe {
     }
 }
 
-plain_enum_mod!{modeschlag, ESchlag {
+plain_enum_mod!{modeschlag, derive(Serialize, Deserialize,), map_derive(Serialize,), ESchlag {
     Ass,
     Zehn,
     Koenig,
@@ -77,7 +77,7 @@ impl EKurzLang {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Copy, Hash, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Hash, Debug, Serialize, Deserialize)]
 pub struct SCard {
     n_internalrepresentation : u8,
 }

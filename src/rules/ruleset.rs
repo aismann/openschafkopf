@@ -60,7 +60,7 @@ pub enum EDoublingScope {
     GamesAndStock,
 }
 
-#[derive(Clone, new, Debug)]
+#[derive(Clone, new, Debug, Serialize)]
 pub struct SStossParams {
     pub n_stoss_max : usize,
 }
@@ -326,17 +326,17 @@ impl SRuleSet {
     pub fn actively_playable_rules_by_id(
         &self,
         epi: EPlayerIndex,
-        rulesid: &SActivelyPlayableRulesID,
-    ) -> Option<Box<TActivelyPlayableRules>> {
-        let mut setrulesid = HashSet::new();
-        let vecrules = allowed_rules(&self.avecrulegroup[epi]).collect::<Vec<_>>();
-        for rules in &vecrules {
+        orulesid: &Option<SActivelyPlayableRulesID>,
+    ) -> Option<Option<Box<TActivelyPlayableRules>>> {
+        let mut setorulesid = HashSet::new();
+        let vecorules = allowed_rules(&self.avecrulegroup[epi]).collect::<Vec<_>>();
+        for orules in &vecorules {
             // check that IDs are unique
-            verify!(setrulesid.insert(rules.rulesid()));
+            verify!(setorulesid.insert(orules.map(|rules| rules.rulesid())));
         }
-        vecrules.iter()
-            .find(|rules| rules.rulesid()==*rulesid)
-            .map(|rules| TActivelyPlayableRules::box_clone(*rules))
+        vecorules.iter()
+            .find(|orules| &orules.map(|rules| rules.rulesid())==orulesid)
+            .map(|orules| orules.map(|rules| TActivelyPlayableRules::box_clone(rules)))
     }
 }
 

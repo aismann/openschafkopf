@@ -20,6 +20,10 @@ extern crate toml;
 #[macro_use]
 extern crate log;
 extern crate env_logger;
+extern crate ws;
+extern crate serde;
+extern crate serde_json;
+#[macro_use] extern crate serde_derive;
 
 #[macro_use]
 mod util;
@@ -30,7 +34,13 @@ mod player;
 mod ai;
 mod skui;
 
-use game::*;
+use game::{
+    *,
+    vgamephase::{
+        VGamePhase,
+        VGameCommand,
+    },
+};
 use primitives::*;
 use rules::{
     TActivelyPlayableRules, // TODO improve trait-object behaviour
@@ -40,7 +50,7 @@ use rules::{
 use ai::*;
 use std::{
     path::Path,
-    sync::mpsc,
+    sync::{mpsc, Arc, Mutex},
 };
 use player::{
     *,
@@ -58,6 +68,11 @@ fn main() {
     };
     // TODO clean up command line arguments and possibly avoid repetitions
     let clapmatches = clap::App::new("schafkopf")
+        .subcommand(clap::SubCommand::with_name("websocket")
+            .arg(clap_arg("ruleset", "ruleset_default.toml"))
+            .arg(clap_arg("ai", "cheating"))
+            .arg(clap_arg("numgames", "4"))
+        )
         .subcommand(clap::SubCommand::with_name("cli")
             .arg(clap_arg("ruleset", "ruleset_default.toml"))
             .arg(clap_arg("ai", "cheating"))
@@ -130,6 +145,16 @@ fn main() {
             skui::end_ui();
         }
     }
+    if let Some(subcommand_matches)=clapmatches.subcommand_matches("websocket") {
+        if let Ok(ruleset) =SRuleSet::from_file(Path::new(subcommand_matches.value_of("ruleset").unwrap())) {
+            game_loop_ws2(
+                // /*n_games*/ subcommand_matches.value_of("numgames").unwrap().parse::<usize>().unwrap_or(4),
+                &ruleset,
+                || SPlayerComputer{ai: ai(subcommand_matches)},
+            );
+            //println!("Results: {}", skui::account_balance_string(&accountbalance));
+        }
+    }
 }
 
 fn communicate_via_channel<T, Func>(f: Func) -> T
@@ -138,6 +163,117 @@ fn communicate_via_channel<T, Func>(f: Func) -> T
     let (txt, rxt) = mpsc::channel::<T>();
     f(txt.clone());
     verify!(rxt.recv()).unwrap()
+}
+
+// adapted from https://ws-rs.org/guide
+struct SSchafkopfServer<'rules> {
+    gamephase: Arc<Mutex<VGamePhase<'rules>>>,
+    mapepiowssender: Arc<Mutex<EnumMap<EPlayerIndex, Option<ws::Sender>>>>,
+    playercomputer: SPlayerComputer,
+}
+
+impl<'rules> ws::Handler for SSchafkopfServer<'rules> {
+    fn on_message(&mut self, msg: ws::Message) -> ws::Result<()> {
+        if let Ok(str_msg) = msg.as_text() {
+            println!("Received: {}", str_msg);
+            if let Ok(gamecmd) = serde_json::from_str::<VGameCommand>(str_msg) {
+                println!("Command recognized");
+                {
+                    {
+                        let mut gamephase = verify!(self.gamephase.lock()).unwrap();
+                        // TODO this should be possible much more elegant
+                        let mut gamephase_swap = VGamePhase::GameResult(SGameResult{
+                            accountbalance : SAccountBalance::new(
+                                /*an*/EPlayerIndex::map_from_fn(|_epi| 0),
+                                /*n_stock*/0,
+                            ),
+                        });
+                        std::mem::swap(&mut *gamephase, &mut gamephase_swap);
+                        gamephase_swap = match gamephase_swap.command(gamecmd) {
+                            Ok(gamephase_new) => {
+                                println!("Command applied successfully");
+                                gamephase_new
+                            },
+                            Err(gamephase_new) => {
+                                println!("Command failed");
+                                gamephase_new
+                            },
+                        };
+                        println!("{:?}", gamephase_swap);
+                        std::mem::swap(&mut *gamephase, &mut gamephase_swap);
+                    }
+                    self.inform_all_players();
+                }
+            } else {
+                println!("Command not recognized");
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'rules> SSchafkopfServer<'rules> {
+    fn new(
+        gamephase: Arc<Mutex<VGamePhase<'rules>>>,
+        mapepiowssender: Arc<Mutex<EnumMap<EPlayerIndex, Option<ws::Sender>>>>,
+        playercomputer: SPlayerComputer,
+    ) -> SSchafkopfServer<'rules> {
+        let schafkopfserver = SSchafkopfServer{
+            gamephase,
+            mapepiowssender,
+            playercomputer,
+        };
+        schafkopfserver.inform_all_players();
+        schafkopfserver
+    }
+
+    fn inform_all_players(&self) {
+        let mapepiowssender = verify!(self.mapepiowssender.lock()).unwrap();
+        let gamephase = verify!(self.gamephase.lock()).unwrap();
+        println!("Informing all players");
+        for epi in EPlayerIndex::values() {
+            if let Some(ref wssender) = mapepiowssender[epi] {
+                verify!(wssender.send(
+                    verify!(serde_json::to_string(&gamephase.publicinfo(epi))).unwrap()
+                )).unwrap();
+            } else {
+            }
+        }
+        println!("Informed all players");
+    }
+}
+
+fn game_loop_ws2<FnPlayerComputer>(ruleset: &SRuleSet, fn_playercomputer: FnPlayerComputer)
+    where FnPlayerComputer: Fn() -> SPlayerComputer,
+{
+    let gamephase = Arc::new(Mutex::new(
+        VGamePhase::DealCards(SDealCards::new(
+            /*epi_first*/EPlayerIndex::wrapped_from_usize(/*i_game*/0),
+            ruleset,
+            /*n_stock*/0,
+        ))
+    ));
+    let mapepiowssender = Arc::new(Mutex::new(EPlayerIndex::map_from_fn(|_epi| None)));
+    if let Err(error) = ws::listen("127.0.0.1:3012", |wssender| {
+        let mapepiowssender = mapepiowssender.clone();
+        {
+            let mut mapepiowssender = verify!(mapepiowssender.lock()).unwrap();
+            for epi in EPlayerIndex::values() {
+                if mapepiowssender[epi].is_none() {
+                    println!("New player at position {}", epi);
+                    mapepiowssender[epi] = Some(wssender);
+                    break;
+                }
+            }
+        }
+        SSchafkopfServer::new(
+            gamephase.clone(),
+            mapepiowssender,
+            fn_playercomputer(),
+        )
+    }) {
+        error!("Failed to create WebSocket due to {:?}", error);
+    }
 }
 
 fn game_loop_cli(aplayer: &EnumMap<EPlayerIndex, Box<TPlayer>>, n_games: usize, ruleset: &SRuleSet) -> SAccountBalance {
