@@ -24,6 +24,7 @@ extern crate ws;
 extern crate serde;
 extern crate serde_json;
 #[macro_use] extern crate serde_derive;
+extern crate take_mut;
 
 #[macro_use]
 mod util;
@@ -178,32 +179,19 @@ impl<'rules> ws::Handler for SSchafkopfServer<'rules> {
             println!("Received: {}", str_msg);
             if let Ok(gamecmd) = serde_json::from_str::<VGameCommand>(str_msg) {
                 println!("Command recognized");
-                {
-                    {
-                        let mut gamephase = verify!(self.gamephase.lock()).unwrap();
-                        // TODO this should be possible much more elegant
-                        let mut gamephase_swap = VGamePhase::GameResult(SGameResult{
-                            accountbalance : SAccountBalance::new(
-                                /*an*/EPlayerIndex::map_from_fn(|_epi| 0),
-                                /*n_stock*/0,
-                            ),
-                        });
-                        std::mem::swap(&mut *gamephase, &mut gamephase_swap);
-                        gamephase_swap = match gamephase_swap.command(gamecmd) {
-                            Ok(gamephase_new) => {
-                                println!("Command applied successfully");
-                                gamephase_new
-                            },
-                            Err(gamephase_new) => {
-                                println!("Command failed");
-                                gamephase_new
-                            },
-                        };
-                        println!("{:?}", gamephase_swap);
-                        std::mem::swap(&mut *gamephase, &mut gamephase_swap);
+                take_mut::take(&mut *verify!(self.gamephase.lock()).unwrap(), |gamephase| {
+                    match gamephase.command(gamecmd) {
+                        Ok(gamephase_new) => {
+                            println!("Command applied successfully");
+                            gamephase_new
+                        },
+                        Err(gamephase_new) => {
+                            println!("Command failed");
+                            gamephase_new
+                        },
                     }
-                    self.inform_all_players();
-                }
+                });
+                self.inform_all_players();
             } else {
                 println!("Command not recognized");
             }
