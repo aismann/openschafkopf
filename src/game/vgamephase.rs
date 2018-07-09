@@ -70,6 +70,28 @@ pub enum VGamePublicInfo {
 
 impl<'rules> VGamePhase<'rules> {
     pub fn publicinfo(&self, epi: EPlayerIndex) -> (VGamePublicInfo, Vec<(String, VGameCommand)>) {
+        fn publicinfo_allowedrules(
+            epi_active: EPlayerIndex,
+            vecrulegroup: &[SRuleGroup],
+            hand: &SHand,
+            ekurzlang: EKurzLang,
+        ) -> Vec<(String, VGameCommand)> {
+            allowed_rules(vecrulegroup)
+                .filter(|orules| orules.map_or(/*allow playing nothing*/true, |rules|
+                    rules.can_be_played(SFullHand::new(hand, ekurzlang))
+                ))
+                .map(|orules| match orules {
+                    None => (
+                        "Nothing".to_string(),
+                        VGameCommand::AnnounceGame(epi_active, None)
+                    ),
+                    Some(rules) => (
+                        format!("{}", rules),
+                        VGameCommand::AnnounceGame(epi_active, Some(rules.rulesid())),
+                    ),
+                })
+                .collect()
+        };
         match self {
             VGamePhase::DealCards(dealcards) => {
                 (
@@ -102,20 +124,14 @@ impl<'rules> VGamePhase<'rules> {
                     )),
                     gamepreparations.which_player_can_do_something()
                         .filter(|epi_active| epi==*epi_active)
-                        .map(|epi_active| {
-                            allowed_rules(&gamepreparations.ruleset.avecrulegroup[epi_active])
-                                .map(|orules| match orules {
-                                    None => (
-                                        "Nothing".to_string(),
-                                        VGameCommand::AnnounceGame(epi, None)
-                                    ),
-                                    Some(rules) => (
-                                        format!("{}", rules),
-                                        VGameCommand::AnnounceGame(epi, Some(rules.rulesid())),
-                                    ),
-                                })
-                                .collect()
-                        })
+                        .map(|epi_active|
+                             publicinfo_allowedrules(
+                                 epi_active,
+                                 &gamepreparations.ruleset.avecrulegroup[epi_active],
+                                 &gamepreparations.ahand[epi_active],
+                                 gamepreparations.ruleset.ekurzlang,
+                             )
+                        )
                         .unwrap_or_default(),
                 )
             },
@@ -138,20 +154,14 @@ impl<'rules> VGamePhase<'rules> {
                     )),
                     determinerules.which_player_can_do_something()
                         .filter(|tplepivecrulegroup| tplepivecrulegroup.0==epi)
-                        .map(|tplepivecrulegroup| {
-                            allowed_rules(&tplepivecrulegroup.1)
-                                .map(|orules| match orules {
-                                    None => (
-                                        "Nothing".to_string(),
-                                        VGameCommand::AnnounceGame(epi, None)
-                                    ),
-                                    Some(rules) => (
-                                        format!("{}", rules),
-                                        VGameCommand::AnnounceGame(epi, Some(rules.rulesid())),
-                                    ),
-                                })
-                                .collect()
-                        })
+                        .map(|tplepivecrulegroup|
+                            publicinfo_allowedrules(
+                                tplepivecrulegroup.0,
+                                &tplepivecrulegroup.1,
+                                &determinerules.ahand[tplepivecrulegroup.0],
+                                determinerules.ruleset.ekurzlang,
+                            )
+                        )
                         .unwrap_or_default(),
                 )
             },
