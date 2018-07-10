@@ -97,7 +97,6 @@ ws.onmessage = function(msg) {
     console.log(publicinfo);
     let gamestate = unpack_gamestate(publicinfo);
     console.log(gamestate);
-    getProperty(gamestate, "hand");
     displayHand(gamestate);
     getProperty(gamestate, "doublings");
     getProperty(gamestate, "n_stock");
@@ -111,6 +110,7 @@ ws.onmessage = function(msg) {
     // process available commands
     let allowedactions = json[1];
     console.log(allowedactions);
+    let paragraph_btns = document.createElement("p");
     allowedactions.forEach(function(e) {
         let btn = document.createElement("BUTTON");
         btn.appendChild(document.createTextNode(e[0]));
@@ -118,7 +118,8 @@ ws.onmessage = function(msg) {
             console.log(e);
             ws.send(JSON.stringify(e[1]));
         };
-        document.body.appendChild(btn);
+        paragraph_btns.appendChild(btn);
     });
+    document.body.appendChild(paragraph_btns);
     window.scrollTo(0, document.body.scrollHeight);
 }
