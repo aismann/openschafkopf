@@ -73,13 +73,9 @@ impl<'rules> VGamePhase<'rules> {
         fn publicinfo_allowedrules(
             epi_active: EPlayerIndex,
             vecrulegroup: &[SRuleGroup],
-            hand: &SHand,
-            ekurzlang: EKurzLang,
+            hand: SFullHand,
         ) -> Vec<(String, VGameCommand)> {
-            allowed_rules(vecrulegroup)
-                .filter(|orules| orules.map_or(/*allow playing nothing*/true, |rules|
-                    rules.can_be_played(SFullHand::new(hand, ekurzlang))
-                ))
+            allowed_rules(vecrulegroup, hand)
                 .map(|orules| match orules {
                     None => (
                         "Nothing".to_string(),
@@ -128,8 +124,7 @@ impl<'rules> VGamePhase<'rules> {
                              publicinfo_allowedrules(
                                  epi_active,
                                  &gamepreparations.ruleset.avecrulegroup[epi_active],
-                                 &gamepreparations.ahand[epi_active],
-                                 gamepreparations.ruleset.ekurzlang,
+                                 gamepreparations.fullhand(epi_active),
                              )
                         )
                         .unwrap_or_default(),
@@ -158,8 +153,7 @@ impl<'rules> VGamePhase<'rules> {
                             publicinfo_allowedrules(
                                 tplepivecrulegroup.0,
                                 &tplepivecrulegroup.1,
-                                &determinerules.ahand[tplepivecrulegroup.0],
-                                determinerules.ruleset.ekurzlang,
+                                determinerules.fullhand(tplepivecrulegroup.0),
                             )
                         )
                         .unwrap_or_default(),
@@ -234,7 +228,7 @@ impl<'rules> VGamePhase<'rules> {
             },
             VGamePhase::GamePreparations(mut gamepreparations) => {
                 if let VGameCommand::AnnounceGame(epi, orulesid) = gamecmd {
-                    if let Some(orules) = gamepreparations.ruleset.actively_playable_rules_by_id(epi, &orulesid) {
+                    if let Some(orules) = gamepreparations.ruleset.actively_playable_rules_by_id(epi, gamepreparations.fullhand(epi), &orulesid) {
                         assert_eq!(Some(epi), orules.as_ref().map_or(Some(epi), |rules| rules.playerindex()));
                         gamepreparations.announce_game(epi, orules).ok();
                     }
@@ -260,7 +254,7 @@ impl<'rules> VGamePhase<'rules> {
             },
             VGamePhase::DetermineRules(mut determinerules) => {
                 if let VGameCommand::AnnounceGame(epi, orulesid) = gamecmd {
-                    if let Some(orules) = determinerules.ruleset.actively_playable_rules_by_id(epi, &orulesid) {
+                    if let Some(orules) = determinerules.ruleset.actively_playable_rules_by_id(epi, determinerules.fullhand(epi), &orulesid) {
                         match orules {
                             None => determinerules.resign(epi).ok(),
                             Some(rules) => {

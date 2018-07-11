@@ -326,10 +326,11 @@ impl SRuleSet {
     pub fn actively_playable_rules_by_id(
         &self,
         epi: EPlayerIndex,
+        hand: SFullHand,
         orulesid: &Option<SActivelyPlayableRulesID>,
     ) -> Option<Option<Box<TActivelyPlayableRules>>> {
         let mut setorulesid = HashSet::new();
-        let vecorules = allowed_rules(&self.avecrulegroup[epi]).collect::<Vec<_>>();
+        let vecorules = allowed_rules(&self.avecrulegroup[epi], hand).collect::<Vec<_>>();
         for orules in &vecorules {
             // check that IDs are unique
             verify!(setorulesid.insert(orules.map(|rules| rules.rulesid())));
