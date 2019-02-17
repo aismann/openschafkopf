@@ -26,18 +26,17 @@ pub trait TForEachSnapshot {
 }
 
 trait TSnapshotVisualizer {
-    fn begin_snapshot(&mut self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>);
+    fn begin_snapshot(&mut self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>, rules: &dyn TRules);
     fn end_snapshot<Output: fmt::Debug>(&mut self, output: &Output);
 }
 
-pub struct SForEachSnapshotHTMLVisualizer<'rules> {
+pub struct SForEachSnapshotHTMLVisualizer {
     file_output: fs::File,
-    rules: &'rules dyn TRules,
     epi: EPlayerIndex,
 }
-impl<'rules> SForEachSnapshotHTMLVisualizer<'rules> {
-    pub fn new(file_output: fs::File, rules: &'rules dyn TRules, epi: EPlayerIndex) -> Self {
-        let mut foreachsnapshothtmlvisualizer = SForEachSnapshotHTMLVisualizer{file_output, rules, epi};
+impl SForEachSnapshotHTMLVisualizer {
+    pub fn new(file_output: fs::File, epi: EPlayerIndex) -> Self {
+        let mut foreachsnapshothtmlvisualizer = SForEachSnapshotHTMLVisualizer{file_output, epi};
         foreachsnapshothtmlvisualizer.write_all(
             b"<style>
             input + label + ul {
@@ -111,8 +110,8 @@ impl<'rules> SForEachSnapshotHTMLVisualizer<'rules> {
     }
 }
 
-impl TSnapshotVisualizer for SForEachSnapshotHTMLVisualizer<'_> {
-    fn begin_snapshot(&mut self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>) {
+impl TSnapshotVisualizer for SForEachSnapshotHTMLVisualizer {
+    fn begin_snapshot(&mut self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>, rules: &dyn TRules) {
         let str_item_id = format!("{}{}",
             stichseq.count_played_cards(),
             rand::thread_rng().sample_iter(&rand::distributions::Alphanumeric).take(16).collect::<String>(), // we simply assume no collisions here
@@ -133,7 +132,7 @@ impl TSnapshotVisualizer for SForEachSnapshotHTMLVisualizer<'_> {
             "<td>{}</td>\n",
             Self::player_table(self.epi, |epi| {
                 let mut veccard = ahand[epi].cards().clone();
-                self.rules.sort_cards_first_trumpf_then_farbe(veccard.as_mut_slice());
+                rules.sort_cards_first_trumpf_then_farbe(veccard.as_mut_slice());
                 Some(veccard.into_iter()
                     .map(|card| Self::output_card(card, /*b_border*/false))
                     .join(""))
@@ -183,13 +182,12 @@ pub fn explore_snapshots<ForEachSnapshot>(
     if let Some(str_file_out) = ostr_file_out {
         forward_to_internal!(&mut SForEachSnapshotHTMLVisualizer::new(
             debug_verify!(fs::File::create(format!("{}.html", str_file_out))).unwrap(),
-            rules,
             epi_self,
         ))
     } else {
         struct SNoVisualization;
         impl TSnapshotVisualizer for SNoVisualization {
-            fn begin_snapshot(&mut self, _stichseq: &SStichSequence, _ahand: &EnumMap<EPlayerIndex, SHand>) {}
+            fn begin_snapshot(&mut self, _stichseq: &SStichSequence, _ahand: &EnumMap<EPlayerIndex, SHand>, _rules: &dyn TRules) {}
             fn end_snapshot<Output: fmt::Debug>(&mut self, _output: &Output) {}
         }
         forward_to_internal!(&mut SNoVisualization{})
@@ -211,7 +209,7 @@ fn explore_snapshots_internal<ForEachSnapshot>(
         ForEachSnapshot: TForEachSnapshot,
         ForEachSnapshot::Output : fmt::Debug,
 {
-    snapshotvisualizer.begin_snapshot(stichseq, &ahand);
+    snapshotvisualizer.begin_snapshot(stichseq, &ahand, rules);
     let output = if ahand.iter().all(|hand| hand.cards().is_empty()) {
         foreachsnapshot.final_output(
             SStichSequenceGameFinished::new(stichseq),
