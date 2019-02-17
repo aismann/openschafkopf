@@ -98,7 +98,6 @@ impl SAi {
                     &mut SStichSequence::new(epi_first, ekurzlang),
                     &branching_factor(|_stichseq| (1, 2)),
                     &SMinReachablePayoutLowerBoundViaHint(SMinReachablePayoutParams::new(
-                        rules,
                         epi_rank,
                         /*tpln_stoss_doubling*/(0, 0), // TODO do we need tpln_stoss_doubling from somewhere? 
                         n_stock,
