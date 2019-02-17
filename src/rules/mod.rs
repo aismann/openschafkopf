@@ -1,3 +1,9 @@
+macro_rules! impl_monomorphize{() => {
+    fn monomorphize<'rules>(&'rules self) -> Box<dyn TMonomorphizeRules + 'rules> {
+        Box::new(SMonomorphizeRules::new(self))
+    }
+}}
+
 #[macro_use]
 pub mod trumpfdecider;
 #[macro_use]
@@ -21,6 +27,7 @@ use std::{
 };
 use crate::util::*;
 use crate::ai::rulespecific::*;
+use crate::ai::{TMonomorphizeRules, SMonomorphizeRules};
 use crate::game::SStichSequence;
 use crate::ai::ahand_vecstich_card_count_is_compatible;
 use crate::rules::card_points::points_stich;
@@ -421,6 +428,8 @@ pub trait TRules : fmt::Display + TAsRules + Sync + fmt::Debug {
     fn rulespecific_ai<'rules>(&'rules self) -> Option<Box<dyn TRuleSpecificAI + 'rules>> {
         None
     }
+
+    fn monomorphize<'rules>(&'rules self) -> Box<dyn TMonomorphizeRules + 'rules>;
 }
 box_clone_impl_box!(TRules);
 

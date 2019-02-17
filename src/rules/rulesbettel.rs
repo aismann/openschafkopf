@@ -161,6 +161,7 @@ impl<BettelAllAllowedCardsWithinStich: TBettelAllAllowedCardsWithinStich> TRules
     box_clone_impl_by_clone!(TRules);
     impl_rules_trumpf!();
     impl_single_play!();
+    impl_monomorphize!();
 
     fn all_allowed_cards_within_stich(&self, stichseq: &SStichSequence, hand: &SHand) -> SHandVector {
         BettelAllAllowedCardsWithinStich::all_allowed_cards_within_stich(self, stichseq, hand)

@@ -331,6 +331,7 @@ impl<TrumpfDecider: TTrumpfDecider, PayoutDecider: TPayoutDeciderSoloLike> TRule
     box_clone_impl_by_clone!(TRules);
     impl_rules_trumpf!();
     impl_single_play!();
+    impl_monomorphize!();
 }
 
 impl<TrumpfDecider: TTrumpfDecider, PayoutDecider: TPayoutDeciderSoloLike> SRulesSoloLike<TrumpfDecider, PayoutDecider> {

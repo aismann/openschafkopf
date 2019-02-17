@@ -25,6 +25,17 @@ use std::{
 use rayon::prelude::*;
 use crate::util::*;
 
+pub trait TMonomorphizeRules {
+}
+
+#[derive(new)]
+pub struct SMonomorphizeRules<'rules, Rules: TRules> {
+    rules: &'rules Rules,
+}
+
+impl<'rules, Rules: TRules> TMonomorphizeRules for SMonomorphizeRules<'rules, Rules> {
+}
+
 pub fn remaining_cards_per_hand(stichseq: &SStichSequence) -> EnumMap<EPlayerIndex, usize> {
     EPlayerIndex::map_from_fn(|epi| {
         stichseq.kurzlang().cards_per_player()
