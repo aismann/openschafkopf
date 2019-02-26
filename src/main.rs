@@ -31,6 +31,7 @@ mod game;
 mod player;
 mod ai;
 mod skui;
+mod game_analysis;
 
 use crate::game::*;
 use crate::primitives::*;
