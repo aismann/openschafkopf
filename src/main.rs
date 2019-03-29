@@ -21,6 +21,8 @@ extern crate toml;
 extern crate log;
 extern crate env_logger;
 extern crate chrono;
+extern crate reqwest;
+extern crate select;
 extern crate combine;
 
 #[macro_use]
@@ -32,8 +34,11 @@ mod player;
 mod ai;
 mod skui;
 mod game_analysis;
+mod sauspiel;
 
 use crate::game::*;
+use crate::game_analysis::*;
+use crate::sauspiel::*;
 use crate::primitives::*;
 use crate::rules::{
     TActivelyPlayableRules, // TODO improve trait-object behaviour
@@ -51,7 +56,7 @@ use crate::player::{
 };
 use crate::util::*;
 
-fn main() {
+fn main() -> Result<(), Error> {
     env_logger::init();
     let clap_arg = |str_long, str_default| {
         clap::Arg::with_name(str_long)
@@ -71,7 +76,67 @@ fn main() {
             .arg(clap_arg("hand", ""))
             .arg(clap_arg("position", "0"))
         )
+        .subcommand(clap::SubCommand::with_name("analyze")
+            .subcommand(clap::SubCommand::with_name("sauspiel")
+                .arg(clap::Arg::with_name("id")
+                     .long("id")
+                     .takes_value(true)
+                )
+                .arg(clap::Arg::with_name("limit")
+                     .long("limit")
+                     .takes_value(true)
+                )
+            )
+        )
         .get_matches();
+    fn read_from_command_line(str_prompt: &str) -> Result<String, Error> {
+        print!("{}", str_prompt);
+        use std::io::Write;
+        std::io::stdout().flush()?;
+        let mut str_input = String::new();
+        std::io::stdin().read_line(&mut str_input)?;
+        verify_eq!(str_input.pop(), Some('\n'));
+        Ok(str_input)
+    }
+    if let Some(subcommand_matches_analyze)=clapmatches.subcommand_matches("analyze") {
+        let path_analysis = std::path::Path::new("./analyse");
+        if let Some(subcommand_matches_sauspiel) = subcommand_matches_analyze.subcommand_matches("sauspiel") {
+            let sauspielcredentials = {
+                let str_user = read_from_command_line("user: ")?;
+                let str_pass = read_from_command_line("pass: ")?;
+                crate::sauspiel::http::SSauspielCredentials{str_user, str_pass}
+            };
+            let fn_link = |str_description: &str| format!("https://www.sauspiel.de/spiele/{}", str_description);
+            if let Some(str_description) = subcommand_matches_sauspiel.value_of("id") { // TODO support multiple ids
+                analyze_games(
+                    path_analysis,
+                    fn_link,
+                    Some(SAnalyzeParamsGroup{
+                        str_group: "Sauspiel".to_string(),
+                        vecanalyzeparamswithdesc: vec![
+                            SAnalyzeParamsWithDesc{
+                                str_description: str_description.to_string(),
+                                resanalyzeparams: retrieve_game(&str_description, &sauspielcredentials),
+                            }
+                        ],
+                    }).into_iter()
+                )?;
+            } else {
+                analyze_games(
+                    path_analysis,
+                    fn_link,
+                    retrieve_top_games(
+                        &sauspielcredentials,
+                        /*on_limit*/if let Some(str_limit) = subcommand_matches_sauspiel.value_of("limit") {
+                            str_limit.parse::<usize>().map(Some)
+                        } else {
+                            Ok(None)
+                        }?
+                    )?.into_iter()
+                )?;
+            }
+        }
+    }
     let ai = |subcommand_matches: &clap::ArgMatches| {
         match debug_verify!(subcommand_matches.value_of("ai")).unwrap() {
             "cheating" => SAi::new_cheating(/*n_rank_rules_samples*/50, /*n_suggest_card_branches*/2),
@@ -135,6 +200,7 @@ fn main() {
             skui::end_ui();
         }
     }
+    Ok(())
 }
 
 fn communicate_via_channel<T: std::fmt::Debug>(f: impl FnOnce(mpsc::Sender<T>)) -> T {
