@@ -181,22 +181,45 @@ impl TRules for SRulesRufspiel {
         }
     }
 
+    fn all_allowed_cards_within_stich_cache(&self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>) -> Option<SAllAllowedCardsWithinStichCache> {
+        Some(SAllAllowedCardsWithinStichCache::new(
+            stichseq,
+            ahand,
+            |slcstich_completed, card_first_in_stich, epi, hand| {
+                self.all_allowed_cards_within_stich_internal(slcstich_completed, card_first_in_stich, epi, hand)
+            },
+        ))
+    }
+
     fn all_allowed_cards_within_stich(&self, stichseq: &SStichSequence, hand: &SHand) -> SHandVector {
+        assert!(!stichseq.current_stich().is_empty());
+        self.all_allowed_cards_within_stich_internal(
+            /*slcstich_completed*/ stichseq.completed_stichs(),
+            /*card_first_in_stich*/ *stichseq.current_stich().first(),
+            /*epi*/ debug_verify!(stichseq.current_stich().current_playerindex()).unwrap(),
+            hand,
+        )
+    }
+
+    fn rulespecific_ai<'rules>(&'rules self) -> Option<Box<dyn TRuleSpecificAI + 'rules>> {
+        Some(Box::new(SAIRufspiel::new(self)))
+    }
+}
+
+impl SRulesRufspiel {
+    fn all_allowed_cards_within_stich_internal(&self, slcstich_completed: &[SStich], card_first_in_stich: SCard, epi: EPlayerIndex, hand: &SHand) -> SHandVector {
         if hand.cards().len()<=1 {
             hand.cards().clone()
         } else {
-            assert!(!stichseq.current_stich().is_empty());
-            let epi = debug_verify!(stichseq.current_stich().current_playerindex()).unwrap();
-            let b_weggelaufen = stichseq.completed_stichs().iter()
+            let b_weggelaufen = slcstich_completed.iter()
                 .any(|stich| epi==stich.first_playerindex() && self.is_ruffarbe(*stich.first()));
-            let card_first = *stichseq.current_stich().first();
-            if self.is_ruffarbe(card_first) && hand.contains(self.rufsau()) && !b_weggelaufen {
+            if self.is_ruffarbe(card_first_in_stich) && hand.contains(self.rufsau()) && !b_weggelaufen {
                 return Some(self.rufsau()).into_iter().collect()
             }
             let veccard_allowed : SHandVector = hand.cards().iter().cloned()
                 .filter(|&card| 
                     self.rufsau()!=card 
-                    && self.trumpforfarbe(card)==self.trumpforfarbe(card_first)
+                    && self.trumpforfarbe(card)==self.trumpforfarbe(card_first_in_stich)
                 )
                 .collect();
             if veccard_allowed.is_empty() {
@@ -209,9 +232,5 @@ impl TRules for SRulesRufspiel {
                 veccard_allowed
             }
         }
-    }
-
-    fn rulespecific_ai<'rules>(&'rules self) -> Option<Box<dyn TRuleSpecificAI + 'rules>> {
-        Some(Box::new(SAIRufspiel::new(self)))
     }
 }

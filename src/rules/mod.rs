@@ -238,6 +238,31 @@ pub trait TRulesNoObj : TRules {
     type TrumpfDecider: trumpfdecider::TTrumpfDecider;
 }
 
+pub struct SAllAllowedCardsWithinStichCache {
+    pub mapepiveccard: EnumMap<EPlayerIndex, SHandVector>,
+}
+impl SAllAllowedCardsWithinStichCache {
+    fn new(
+        stichseq: &SStichSequence,
+        ahand: &EnumMap<EPlayerIndex, SHand>,
+        fn_allowed_cards: impl Fn(
+            &[SStich]/*slcstich_completed*/,
+            SCard/*card_first_in_stich*/,
+            EPlayerIndex/*epi*/,
+            &SHand,
+        ) -> SHandVector,
+    ) -> SAllAllowedCardsWithinStichCache {
+        assert_eq!(1, stichseq.current_stich().size());
+        let slcstich_completed = stichseq.completed_stichs();
+        let card_first_in_stich = *stichseq.current_stich().first();
+        Self {
+            mapepiveccard: EPlayerIndex::map_from_fn(|epi| {
+                fn_allowed_cards(slcstich_completed, card_first_in_stich, epi, &ahand[epi])
+            }),
+        }
+    }
+}
+
 pub trait TRules : fmt::Display + TAsRules + Sync + fmt::Debug {
     box_clone_require!(TRules);
 
@@ -345,6 +370,10 @@ pub trait TRules : fmt::Display + TAsRules + Sync + fmt::Debug {
     fn all_allowed_cards_first_in_stich(&self, _stichseq: &SStichSequence, hand: &SHand) -> SHandVector {
         // probably in most cases, every card can be played
         hand.cards().clone()
+    }
+
+    fn all_allowed_cards_within_stich_cache(&self, _stichseq: &SStichSequence, _ahand: &EnumMap<EPlayerIndex, SHand>) -> Option<SAllAllowedCardsWithinStichCache> {
+        None
     }
 
     fn all_allowed_cards_within_stich(&self, stichseq: &SStichSequence, hand: &SHand) -> SHandVector {
