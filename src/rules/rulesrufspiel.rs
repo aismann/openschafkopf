@@ -181,14 +181,8 @@ impl TRules for SRulesRufspiel {
         }
     }
 
-    fn all_allowed_cards_within_stich_cache(&self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>) -> Option<SAllAllowedCardsWithinStichCache> {
-        Some(SAllAllowedCardsWithinStichCache::new(
-            stichseq,
-            ahand,
-            |slcstich_completed, card_first_in_stich, epi, hand| {
-                self.all_allowed_cards_within_stich_internal(slcstich_completed, card_first_in_stich, epi, hand)
-            },
-        ))
+    fn all_allowed_cards_within_stich_cache(&self) -> Option<SAllAllowedCardsWithinStichCache> {
+        Some(SAllAllowedCardsWithinStichCache::new(self))
     }
 
     fn all_allowed_cards_within_stich(&self, stichseq: &SStichSequence, hand: &SHand) -> SHandVector {

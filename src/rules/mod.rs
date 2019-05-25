@@ -238,29 +238,53 @@ pub trait TRulesNoObj : TRules {
     type TrumpfDecider: trumpfdecider::TTrumpfDecider;
 }
 
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub struct SAllAllowedCardsWithinStichCache {
-    pub mapepiveccard: EnumMap<EPlayerIndex, SHandVector>,
+#[derive(Clone, Debug)]
+pub struct SAllAllowedCardsWithinStichCache<'rules> {
+    rules: &'rules dyn TRules, // TODO introduce TRulesAllowedCardsCachable
+    mapepioveccard: EnumMap<EPlayerIndex, Option<SHandVector>>,
+    #[cfg(debug_assertions)]
+    mapepistuff: EnumMap<EPlayerIndex, Option<(
+        SStichSequence,
+        SHand,
+    )>>,
 }
-impl SAllAllowedCardsWithinStichCache {
-    fn new(
-        stichseq: &SStichSequence,
-        ahand: &EnumMap<EPlayerIndex, SHand>,
-        fn_allowed_cards: impl Fn(
-            &[SStich]/*slcstich_completed*/,
-            SCard/*card_first_in_stich*/,
-            EPlayerIndex/*epi*/,
-            &SHand,
-        ) -> SHandVector,
-    ) -> SAllAllowedCardsWithinStichCache {
-        assert!(!stichseq.current_stich().is_empty());
-        let slcstich_completed = stichseq.completed_stichs();
-        let card_first_in_stich = *stichseq.current_stich().first();
+impl<'rules> SAllAllowedCardsWithinStichCache<'rules> {
+    pub fn new(rules: &'rules dyn TRules) -> SAllAllowedCardsWithinStichCache<'rules> {
         Self {
-            mapepiveccard: EPlayerIndex::map_from_fn(|epi| {
-                fn_allowed_cards(slcstich_completed, card_first_in_stich, epi, &ahand[epi])
-            }),
+            rules,
+            mapepioveccard: EPlayerIndex::map_from_fn(|_| None),
+            #[cfg(debug_assertions)]
+            mapepistuff: EPlayerIndex::map_from_fn(|_| None),
         }
+    }
+
+    pub fn cached_all_allowed_cards_within_stich(
+        &mut self,
+        stichseq: &SStichSequence,
+        hand: &SHand,
+        epi_current: EPlayerIndex,
+    ) -> &SHandVector {
+        let rules = self.rules;
+        let veccard = self.mapepioveccard[epi_current].get_or_insert_with(|| {
+            rules.all_allowed_cards_within_stich(stichseq, hand)
+        });
+        #[cfg(debug_assertions)]
+        fn cards_as_set(itcard: impl Iterator<Item=SCard>) -> EnumMap<SCard, bool> {
+            let mut mapcardb = SCard::map_from_fn(|_| false);
+            for card in itcard {
+                mapcardb[card] = true;
+            };
+            mapcardb
+        }
+        #[cfg(debug_assertions)]
+        debug_assert_eq!(
+            cards_as_set(veccard.iter().cloned()),
+            cards_as_set(rules.all_allowed_cards_within_stich(stichseq, hand).into_iter()),
+            "\n{:?}\n{:?}", (stichseq, hand), self.mapepistuff[epi_current]
+        );
+        #[cfg(debug_assertions)]
+        self.mapepistuff[epi_current].get_or_insert_with(|| (stichseq.clone(), hand.clone()));
+        veccard
     }
 }
 
@@ -373,7 +397,7 @@ pub trait TRules : fmt::Display + TAsRules + Sync + fmt::Debug {
         hand.cards().clone()
     }
 
-    fn all_allowed_cards_within_stich_cache(&self, _stichseq: &SStichSequence, _ahand: &EnumMap<EPlayerIndex, SHand>) -> Option<SAllAllowedCardsWithinStichCache> {
+    fn all_allowed_cards_within_stich_cache(&self) -> Option<SAllAllowedCardsWithinStichCache> {
         None
     }
 
