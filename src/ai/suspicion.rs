@@ -133,10 +133,16 @@ pub fn explore_snapshots<ForEachSnapshot>(
         ForEachSnapshot: TForEachSnapshot,
         ForEachSnapshot::Output: fmt::Debug,
 {
+    let oallallowedcardswithinstichcache = if stichseq.current_stich().is_empty() {
+        None
+    } else {
+        rules.all_allowed_cards_within_stich_cache(stichseq, ahand)
+    };
     macro_rules! forward_to_internal{($snapshotvisualizer: expr) => {
         explore_snapshots_internal(
             ahand,
             rules,
+            oallallowedcardswithinstichcache.as_ref(),
             &mut SRuleStateCache::new(
                 stichseq,
                 ahand,
@@ -167,6 +173,7 @@ pub fn explore_snapshots<ForEachSnapshot>(
 fn explore_snapshots_internal<ForEachSnapshot>(
     ahand: &mut EnumMap<EPlayerIndex, SHand>,
     rules: &dyn TRules,
+    oallallowedcardswithinstichcache: Option<&SAllAllowedCardsWithinStichCache>,
     rulestatecache: &mut SRuleStateCache,
     stichseq: &mut SStichSequence,
     func_filter_allowed_cards: &impl Fn(&SStichSequence, &mut SHandVector),
@@ -186,7 +193,28 @@ fn explore_snapshots_internal<ForEachSnapshot>(
     } else {
         foreachsnapshot.pruned_output(stichseq, &ahand, rulestatecache).unwrap_or_else(|| {
             let epi_current = debug_verify!(stichseq.current_stich().current_playerindex()).unwrap();
-            let mut veccard_allowed = rules.all_allowed_cards(stichseq, &ahand[epi_current]);
+            #[cfg(debug_assertions)]
+            fn cards_as_set(itcard: impl Iterator<Item=SCard>) -> EnumMap<SCard, bool> {
+                let mut mapcardb = SCard::map_from_fn(|_| false);
+                for card in itcard {
+                    mapcardb[card] = true;
+                };
+                mapcardb
+            }
+            let mut veccard_allowed = {
+                if stichseq.current_stich().is_empty() {
+                    rules.all_allowed_cards_first_in_stich(stichseq, &ahand[epi_current])
+                } else if let Some(allallowedcardswithinstichcache) = oallallowedcardswithinstichcache {
+                    allallowedcardswithinstichcache.mapepiveccard[epi_current].clone()
+                } else {
+                    rules.all_allowed_cards_within_stich(stichseq, &ahand[epi_current])
+                }
+            };
+            #[cfg(debug_assertions)]
+            debug_assert_eq!(
+                cards_as_set(veccard_allowed.iter().cloned()),
+                cards_as_set(rules.all_allowed_cards(stichseq, &ahand[epi_current]).iter().cloned())
+            );
             func_filter_allowed_cards(stichseq, &mut veccard_allowed);
             // TODO? use equivalent card optimization
             foreachsnapshot.combine_outputs(
@@ -194,15 +222,37 @@ fn explore_snapshots_internal<ForEachSnapshot>(
                 veccard_allowed.into_iter().map(|card| {
                     ahand[epi_current].play_card(card);
                     let output = stichseq.zugeben_and_restore(card, rules, |stichseq| {
-                        macro_rules! next_step {() => {explore_snapshots_internal(
-                            ahand,
-                            rules,
-                            rulestatecache,
-                            stichseq,
-                            func_filter_allowed_cards,
-                            foreachsnapshot,
-                            snapshotvisualizer,
-                        )}};
+                        macro_rules! next_step {() => {{
+                            let oallallowedcardswithinstichcache_next = match stichseq.current_stich().size() {
+                                0 => None,
+                                1 => rules.all_allowed_cards_within_stich_cache(stichseq, ahand),
+                                2|3 => {
+                                    #[cfg(debug_assertions)]
+                                    let cached_allowed_cards = |allallowedcardswithinstichcache: &SAllAllowedCardsWithinStichCache| {
+                                        cards_as_set(allallowedcardswithinstichcache.mapepiveccard[
+                                            debug_verify!(stichseq.current_stich().current_playerindex()).unwrap()
+                                        ].iter().cloned())
+                                    };
+                                    #[cfg(debug_assertions)]
+                                    debug_assert_eq!(
+                                        oallallowedcardswithinstichcache.map(cached_allowed_cards),
+                                        rules.all_allowed_cards_within_stich_cache(stichseq, ahand).as_ref().map(cached_allowed_cards)
+                                    );
+                                    oallallowedcardswithinstichcache.map(ToOwned::to_owned) // TODO can we avoid this?
+                                },
+                                _ => panic!(),
+                            };
+                            explore_snapshots_internal(
+                                ahand,
+                                rules,
+                                oallallowedcardswithinstichcache_next.as_ref(),
+                                rulestatecache,
+                                stichseq,
+                                func_filter_allowed_cards,
+                                foreachsnapshot,
+                                snapshotvisualizer,
+                            )
+                        }}};
                         if stichseq.current_stich().is_empty() {
                             let unregisterstich = rulestatecache.register_stich(
                                 debug_verify!(stichseq.completed_stichs().last()).unwrap(),

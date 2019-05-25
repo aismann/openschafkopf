@@ -331,6 +331,21 @@ impl<StaticEPI: TStaticValue<EPlayerIndex>, TrumpfDecider: TTrumpfDecider, Payou
     box_clone_impl_by_clone!(TRules);
     impl_rules_trumpf!();
     impl_single_play!();
+
+    fn all_allowed_cards_within_stich_cache(&self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>) -> Option<SAllAllowedCardsWithinStichCache> {
+        Some(SAllAllowedCardsWithinStichCache::new(
+            stichseq,
+            ahand,
+            |_slcstich_completed, card_first_in_stich, _epi, hand| {
+                all_allowed_cards_within_stich_distinguish_farbe_frei(
+                    self,
+                    card_first_in_stich,
+                    hand,
+                    /*fn_farbe_not_frei*/|veccard_same_farbe| veccard_same_farbe,
+                )
+            },
+        ))
+    }
 }
 
 impl<StaticEPI: TStaticValue<EPlayerIndex>, TrumpfDecider: TTrumpfDecider, PayoutDecider: TPayoutDeciderSoloLike> SRulesSoloLike<StaticEPI, TrumpfDecider, PayoutDecider> {

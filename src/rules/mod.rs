@@ -238,6 +238,7 @@ pub trait TRulesNoObj : TRules {
     type TrumpfDecider: trumpfdecider::TTrumpfDecider;
 }
 
+#[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SAllAllowedCardsWithinStichCache {
     pub mapepiveccard: EnumMap<EPlayerIndex, SHandVector>,
 }
@@ -252,7 +253,7 @@ impl SAllAllowedCardsWithinStichCache {
             &SHand,
         ) -> SHandVector,
     ) -> SAllAllowedCardsWithinStichCache {
-        assert_eq!(1, stichseq.current_stich().size());
+        assert!(!stichseq.current_stich().is_empty());
         let slcstich_completed = stichseq.completed_stichs();
         let card_first_in_stich = *stichseq.current_stich().first();
         Self {
