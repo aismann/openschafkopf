@@ -1,3 +1,9 @@
+philipp@philipp-ThinkPad-L540:~/Documents/projekte/openschafkopf$ hyperfine -r5 "./target/release/openschafkopf analyze testdata/20190331/*"
+Benchmark #1: ./target/release/openschafkopf analyze testdata/20190331/*
+  Time (mean ± σ):     258.707 s ± 11.362 s    [User: 1009.686 s, System: 0.609 s]
+  Range (min … max):   239.675 s … 266.035 s    5 runs
+ 
+
   Time Crate
 67.52s openschafkopf vs <25s
 39.30s combine
