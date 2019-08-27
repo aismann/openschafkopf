@@ -1,0 +1,108 @@
+  Time Crate
+67.52s openschafkopf vs <25s
+39.30s combine
+29.87s syn
+25.19s serde
+23.99s clap
+15.05s serde_derive
+12.54s toml
+11.12s html5ever
+10.16s proc_macro2
+ 9.91s serde_json
+ 9.75s plain_enum
+ 9.41s cc
+ 8.47s libc
+ 8.42s rand
+ 8.32s rand
+ 7.12s rayon
+ 7.08s chrono
+ 6.48s rayon_core
+ 5.93s derive_new
+ 5.88s c2_chacha
+ 5.74s synstructure
+ 5.39s pkg_config
+ 5.25s semver_parser
+ 5.18s ncurses
+ 5.12s itertools
+ 5.10s failure_derive
+ 4.83s autocfg
+ 4.73s memchr
+ 4.58s string_cache_codegen
+ 4.35s num_traits
+ 4.11s glob
+ 4.01s byteorder
+ 4.00s fern
+ 3.92s rand_core
+ 3.68s siphasher
+ 3.64s string_cache
+ 3.49s unicode_xid
+ 3.43s openschafkopf_monitor
+ 3.40s ascii
+ 3.30s ppv_lite86
+ 3.23s crossbeam_utils
+ 3.14s markup5ever
+ 3.03s arrayvec
+ 2.84s backtrace
+ 2.79s rustc_demangle
+ 2.67s crossbeam_epoch
+ 2.62s semver
+ 2.60s strsim
+ 2.53s num_integer
+ 2.50s time
+ 2.41s ryu
+ 2.40s log
+ 2.29s getrandom
+ 2.28s memoffset
+ 2.25s bitflags
+ 2.02s textwrap
+ 1.96s num_cpus
+ 1.87s rand_chacha
+ 1.85s tendril
+ 1.82s dirs_sys
+ 1.80s select
+ 1.64s backtrace_sys
+ 1.58s bit_vec
+ 1.52s rand_hc
+ 1.51s rustc_version
+ 1.48s ansi_term
+ 1.44s rand_chacha
+ 1.42s as_num
+ 1.41s rand_os
+ 1.36s rand_isaac
+ 1.28s rand_pcg
+ 1.18s rand_core
+ 1.08s rand_jitter
+ 1.01s quote
+ 1.01s dirs
+ 0.87s vec_map
+ 0.84s utf8
+ 0.84s crossbeam_deque
+ 0.78s openschafkopf_logging
+ 0.76s permutohedron
+ 0.70s either
+ 0.66s phf_shared
+ 0.66s bit_set
+ 0.66s phf_codegen
+ 0.66s crossbeam_queue
+ 0.64s failure
+ 0.63s futf
+ 0.59s rand_xorshift
+ 0.59s phf
+ 0.54s itoa
+ 0.44s openschafkopf_util
+ 0.42s phf_generator
+ 0.37s atty
+ 0.35s unicode_width
+ 0.31s void
+ 0.26s scopeguard
+ 0.26s lazy_static
+ 0.20s precomputed_hash
+ 0.19s mac
+ 0.18s debug_unreachable
+ 0.18s nodrop
+ 0.18s rand_core
+ 0.17s string_cache_shared
+ 0.17s unreachable
+ 0.15s cfg_if
+Note: prefer using `-j 1` argument to disable a multithreaded build.
+
