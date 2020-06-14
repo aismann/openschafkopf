@@ -62,7 +62,11 @@ fn main() -> Result<(), Error> {
                  .multiple(true)
             )
         )
+        .subcommand(clap::SubCommand::with_name("websocket"))
         .get_matches();
+    if let Some(_subcommand_matches_websocket)=clapmatches.subcommand_matches("websocket") {
+        return subcommands::websocket::run();
+    }
     if let Some(subcommand_matches_analyze)=clapmatches.subcommand_matches("analyze") {
         if let Some(itstr_sauspiel_html_file) = subcommand_matches_analyze.values_of("sauspiel-files") {
             return subcommands::analyze::analyze(
