@@ -42,15 +42,12 @@ async fn handle_connection(peermap: SPeerMap, tcpstream: TcpStream, sockaddr: So
                 sockaddr,
                 debug_verify!(msg.to_text()).unwrap()
             );
-            let peermap = debug_verify!(peermap.lock()).unwrap();
-            // We want to broadcast the message to everyone except ourselves.
-            let broadcast_recipients = peermap
+            debug_verify!(peermap.lock())
+                .unwrap()
                 .iter()
-                .filter(|(peer_addr, _)| peer_addr != &&sockaddr)
-                .map(|(_, ws_sink)| ws_sink);
-            for recp in broadcast_recipients {
-                debug_verify!(recp.unbounded_send(msg.clone())).unwrap();
-            }
+                .for_each(|(_sockaddr_peer, tx_peer)| {
+                    debug_verify!(tx_peer.unbounded_send(msg.clone())).unwrap();
+                });
             future::ok(())
         });
     let receive_from_others = rx.map(Ok).forward(sink_ws_out);
