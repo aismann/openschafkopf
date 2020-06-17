@@ -5,6 +5,9 @@ use std::{
     sync::{Arc, Mutex},
 };
 use crate::util::*;
+use crate::game::*;
+use crate::rules::*;
+use crate::rules::ruleset::SRuleSet;
 
 use futures::prelude::*;
 use futures::{
@@ -20,15 +23,86 @@ use async_tungstenite::tungstenite::protocol::Message;
 use crate::primitives::*;
 
 #[derive(Debug)]
+enum VGamePhaseGeneric<DealCards, GamePreparations, DetermineRules, Game, GameResult> {
+    DealCards(DealCards),
+    GamePreparations(GamePreparations),
+    DetermineRules(DetermineRules),
+    Game(Game),
+    GameResult(GameResult),
+}
+
+type VGamePhase = VGamePhaseGeneric<
+    SDealCards,
+    SGamePreparations,
+    SDetermineRules,
+    SGame,
+    SGameResult,
+>;
+type VGamePhaseActivePlayerInfo = VGamePhaseGeneric<
+    <SDealCards as TGamePhase>::ActivePlayerInfo,
+    <SGamePreparations as TGamePhase>::ActivePlayerInfo,
+    <SDetermineRules as TGamePhase>::ActivePlayerInfo,
+    <SGame as TGamePhase>::ActivePlayerInfo,
+    <SGameResult as TGamePhase>::ActivePlayerInfo,
+>;
+enum VDetermineRulesAction {
+    AnnounceGame(EPlayerIndex, Box<dyn TActivelyPlayableRules>),
+    Resign(EPlayerIndex),
+}
+enum VGameAction {
+    Stoss(EPlayerIndex),
+    Zugeben(SCard, EPlayerIndex),
+}
+type VGamePhaseAction = VGamePhaseGeneric<
+    /*DealCards announce_doubling*/(EPlayerIndex, /*b_doubling*/bool),
+    /*GamePreparations announce_game*/(EPlayerIndex, Option<Box<dyn TActivelyPlayableRules>>),
+    /*DetermineRules*/VDetermineRulesAction,
+    /*Game*/VGameAction,
+    /*GameResult*/(), // TODO? should players be able to "accept" result?
+>;
+
+impl VGamePhase {
+    fn which_player_can_do_something(&self) -> Option<VGamePhaseActivePlayerInfo> {
+        use VGamePhaseGeneric::*;
+        match self {
+            DealCards(dealcards) => dealcards.which_player_can_do_something().map(DealCards),
+            GamePreparations(gamepreparations) => gamepreparations.which_player_can_do_something().map(GamePreparations),
+            DetermineRules(determinerules) => determinerules.which_player_can_do_something().map(DetermineRules),
+            Game(game) => game.which_player_can_do_something().map(Game),
+            GameResult(gameresult) => gameresult.which_player_can_do_something().map(GameResult),
+        }
+    }
+}
+
+#[derive(Debug)]
 struct SPeer {
     sockaddr: SocketAddr,
     txmsg: UnboundedSender<Message>,
+    n_money: isize,
+}
+
+fn static_ruleset() -> SRuleSet {
+    debug_verify!(SRuleSet::from_string(
+        r"
+        base-price=10
+        solo-price=50
+        lauf-min=3
+        [rufspiel]
+        [solo]
+        [wenz]
+        lauf-min=2
+        [stoss]
+        max=3
+        ",
+    )).unwrap()
 }
 
 #[derive(Default, Debug)]
 struct SPeers {
     mapepiopeer: EnumMap<EPlayerIndex, Option<SPeer>>, // active
     vecpeer: Vec<SPeer>, // inactive
+    ogamephase: Option<VGamePhase>,
+    n_stock: isize, // TODO would that be better within VGamePhase?
 }
 impl SPeers {
     fn insert(&mut self, peer: SPeer) {
@@ -43,6 +117,16 @@ impl SPeers {
             None => {
                 self.vecpeer.push(peer);
             }
+        }
+        if self.ogamephase.is_none()
+            && self.mapepiopeer
+                .iter()
+                .all(|opeer| opeer.is_some())
+        {
+            self.ogamephase = Some(VGamePhase::DealCards(SDealCards::new(
+                static_ruleset(),
+                self.n_stock,
+            )));
         }
     }
 
@@ -73,7 +157,7 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
     println!("WebSocket connection established: {}", sockaddr);
     // Insert the write part of this peer to the peer map.
     let (txmsg, rxmsg) = unbounded();
-    debug_verify!(peers.lock()).unwrap().insert(SPeer{sockaddr, txmsg});
+    debug_verify!(peers.lock()).unwrap().insert(SPeer{sockaddr, txmsg, n_money: 0});
     let (sink_ws_out, stream_ws_in) = wsstream.split();
     let broadcast_incoming = stream_ws_in
         .try_filter(|msg| {
@@ -87,11 +171,106 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                 sockaddr,
                 debug_verify!(msg.to_text()).unwrap()
             );
-            debug_verify!(peers.lock())
-                .unwrap()
-                .for_each(|oepi, tx_peer| {
-                    debug_verify!(tx_peer.unbounded_send(format!("{:?}: {}", oepi, msg).into())).unwrap();
+            let mut peers = debug_verify!(peers.lock()).unwrap();
+            if let Some(mut gamephase) = peers.ogamephase.take() /*TODO take necessary here?*/ {
+                if let Some(activeplayerinfo) = gamephase.which_player_can_do_something() {
+                    use VGamePhaseGeneric::*;
+                    match activeplayerinfo {
+                        DealCards(epi_doubling) => {
+                            peers.for_each(|oepi, tx_peer| {
+                                if Some(epi_doubling)==oepi {
+                                    debug_verify!(tx_peer.unbounded_send(format!("Double?").into())).unwrap();
+                                } else {
+                                    debug_verify!(tx_peer.unbounded_send(format!("Asking {:?} for doubling", epi_doubling).into())).unwrap();
+                                }
+                            });
+                        },
+                        GamePreparations(epi_announce_game) => {
+                            peers.for_each(|oepi, tx_peer| {
+                                if Some(epi_announce_game)==oepi {
+                                    debug_verify!(tx_peer.unbounded_send(format!("Announce game?").into())).unwrap();
+                                } else {
+                                    debug_verify!(tx_peer.unbounded_send(format!("Asking {:?} for game", epi_announce_game).into())).unwrap();
+                                }
+                            });
+                        },
+                        DetermineRules((epi_determine, _vecrulegroup)) => {
+                            peers.for_each(|oepi, tx_peer| {
+                                if Some(epi_determine)==oepi {
+                                    debug_verify!(tx_peer.unbounded_send(format!("Re-Announce game?").into())).unwrap();
+                                } else {
+                                    debug_verify!(tx_peer.unbounded_send(format!("Re-Asking {:?} for game", epi_determine).into())).unwrap();
+                                }
+                            });
+                        },
+                        Game((epi_card, vecepi_stoss)) => {
+                            peers.for_each(|oepi, tx_peer| {
+                                match (Some(epi_card)==oepi, oepi.map_or(false, |epi| vecepi_stoss.contains(&epi))) {
+                                    (true, true) => {
+                                        debug_verify!(tx_peer.unbounded_send(format!("Card?, Stoss?").into())).unwrap();
+                                    },
+                                    (true, false) => {
+                                        debug_verify!(tx_peer.unbounded_send(format!("Card?").into())).unwrap();
+                                    },
+                                    (false, true) => {
+                                        debug_verify!(tx_peer.unbounded_send(format!("Stoss?").into())).unwrap();
+                                    },
+                                    (false, false) => {
+                                        debug_verify!(tx_peer.unbounded_send(format!("Asking {:?} for card", epi_card).into())).unwrap();
+                                    },
+                                }
+                            });
+                        },
+                        GameResult(()) => {
+                            peers.for_each(|_oepi, tx_peer| {
+                                debug_verify!(tx_peer.unbounded_send(format!("Game finished").into())).unwrap();
+                            });
+                        },
+                    }
+                } else {
+                    use VGamePhaseGeneric::*;
+                    gamephase = match gamephase {
+                        DealCards(dealcards) => match dealcards.finish() {
+                            Ok(gamepreparations) => GamePreparations(gamepreparations),
+                            Err(dealcards) => DealCards(dealcards),
+                        },
+                        GamePreparations(gamepreparations) => match gamepreparations.finish() {
+                            Ok(VGamePreparationsFinish::DetermineRules(determinerules)) => DetermineRules(determinerules),
+                            Ok(VGamePreparationsFinish::DirectGame(game)) => Game(game),
+                            Ok(VGamePreparationsFinish::Stock(n_stock)) => {
+                                for epi in EPlayerIndex::values() {
+                                    if let Some(ref mut peer) = peers.mapepiopeer[epi] {
+                                        peer.n_money -= n_stock;
+                                    }
+                                }
+                                peers.n_stock += n_stock * EPlayerIndex::SIZE.as_num::<isize>();
+                                DealCards(SDealCards::new(static_ruleset(), peers.n_stock))
+                            },
+                            Err(gamepreparations) => GamePreparations(gamepreparations),
+                        }
+                        DetermineRules(determinerules) => match determinerules.finish() {
+                            Ok(game) => Game(game),
+                            Err(determinerules) => DetermineRules(determinerules),
+                        },
+                        Game(game) => match game.finish() {
+                            Ok(gameresult) => GameResult(gameresult),
+                            Err(game) => Game(game),
+                        },
+                        GameResult(gameresult) => match gameresult.finish() {
+                            Ok(gameresult) | Err(gameresult) => GameResult(gameresult),
+                        },
+                    };
+                    peers.for_each(|oepi, tx_peer| {
+                        debug_verify!(tx_peer.unbounded_send(format!("{:?}: Transitioning to next phase", oepi).into())).unwrap();
+                    });
+                }
+                peers.ogamephase = Some(gamephase);
+                assert!(peers.ogamephase.is_some());
+            } else {
+                peers.for_each(|oepi, tx_peer| {
+                    debug_verify!(tx_peer.unbounded_send(format!("{:?}: Waiting for more players.", oepi).into())).unwrap();
                 });
+            }
             future::ok(())
         });
     let receive_from_others = rxmsg.map(Ok).forward(sink_ws_out);
