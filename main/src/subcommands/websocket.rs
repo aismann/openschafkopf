@@ -14,6 +14,7 @@ use futures::{
     channel::mpsc::{unbounded, UnboundedSender},
     future, pin_mut,
 };
+use serde::Serialize;
 
 use async_std::{
     net::{TcpListener, TcpStream},
@@ -139,16 +140,27 @@ impl SPeers {
         self.vecpeer.retain(|peer| peer.sockaddr!=*sockaddr);
     }
 
-    fn for_each(&self, mut f: impl FnMut(Option<EPlayerIndex>, UnboundedSender<Message>)) {
+    fn for_each(&self, mut f: impl FnMut(Option<EPlayerIndex>)->VMessage) {
+        let mut communicate = |oepi, txmsg: UnboundedSender<_>| {
+            let msg = f(oepi);
+            debug_verify!(txmsg.unbounded_send(
+                debug_verify!(serde_json::to_string(&(oepi, msg))).unwrap().into()
+            )).unwrap();
+        };
         for epi in EPlayerIndex::values() {
             if let Some(peer) = self.mapepiopeer[epi].as_ref() {
-                f(Some(epi), peer.txmsg.clone());
+                communicate(Some(epi), peer.txmsg.clone());
             }
         }
         for peer in &self.vecpeer {
-            f(None, peer.txmsg.clone());
+            communicate(None, peer.txmsg.clone());
         }
     }
+}
+
+#[derive(Serialize)]
+enum VMessage {
+    Info(String),
 }
 
 async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sockaddr: SocketAddr) {
@@ -177,53 +189,53 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                     use VGamePhaseGeneric::*;
                     match activeplayerinfo {
                         DealCards(epi_doubling) => {
-                            peers.for_each(|oepi, tx_peer| {
+                            peers.for_each(|oepi| {
                                 if Some(epi_doubling)==oepi {
-                                    debug_verify!(tx_peer.unbounded_send(format!("Double?").into())).unwrap();
+                                    VMessage::Info(format!("Double?"))
                                 } else {
-                                    debug_verify!(tx_peer.unbounded_send(format!("Asking {:?} for doubling", epi_doubling).into())).unwrap();
+                                    VMessage::Info(format!("Asking {:?} for doubling", epi_doubling))
                                 }
                             });
                         },
                         GamePreparations(epi_announce_game) => {
-                            peers.for_each(|oepi, tx_peer| {
+                            peers.for_each(|oepi| {
                                 if Some(epi_announce_game)==oepi {
-                                    debug_verify!(tx_peer.unbounded_send(format!("Announce game?").into())).unwrap();
+                                    VMessage::Info(format!("Announce game?"))
                                 } else {
-                                    debug_verify!(tx_peer.unbounded_send(format!("Asking {:?} for game", epi_announce_game).into())).unwrap();
+                                    VMessage::Info(format!("Asking {:?} for game", epi_announce_game))
                                 }
                             });
                         },
                         DetermineRules((epi_determine, _vecrulegroup)) => {
-                            peers.for_each(|oepi, tx_peer| {
+                            peers.for_each(|oepi| {
                                 if Some(epi_determine)==oepi {
-                                    debug_verify!(tx_peer.unbounded_send(format!("Re-Announce game?").into())).unwrap();
+                                    VMessage::Info(format!("Re-Announce game?"))
                                 } else {
-                                    debug_verify!(tx_peer.unbounded_send(format!("Re-Asking {:?} for game", epi_determine).into())).unwrap();
+                                    VMessage::Info(format!("Re-Asking {:?} for game", epi_determine))
                                 }
                             });
                         },
                         Game((epi_card, vecepi_stoss)) => {
-                            peers.for_each(|oepi, tx_peer| {
+                            peers.for_each(|oepi| {
                                 match (Some(epi_card)==oepi, oepi.map_or(false, |epi| vecepi_stoss.contains(&epi))) {
                                     (true, true) => {
-                                        debug_verify!(tx_peer.unbounded_send(format!("Card?, Stoss?").into())).unwrap();
+                                        VMessage::Info(format!("Card?, Stoss?"))
                                     },
                                     (true, false) => {
-                                        debug_verify!(tx_peer.unbounded_send(format!("Card?").into())).unwrap();
+                                        VMessage::Info(format!("Card?"))
                                     },
                                     (false, true) => {
-                                        debug_verify!(tx_peer.unbounded_send(format!("Stoss?").into())).unwrap();
+                                        VMessage::Info(format!("Stoss?"))
                                     },
                                     (false, false) => {
-                                        debug_verify!(tx_peer.unbounded_send(format!("Asking {:?} for card", epi_card).into())).unwrap();
+                                        VMessage::Info(format!("Asking {:?} for card", epi_card))
                                     },
                                 }
                             });
                         },
                         GameResult(()) => {
-                            peers.for_each(|_oepi, tx_peer| {
-                                debug_verify!(tx_peer.unbounded_send(format!("Game finished").into())).unwrap();
+                            peers.for_each(|_oepi| {
+                                VMessage::Info(format!("Game finished"))
                             });
                         },
                     }
@@ -260,16 +272,14 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                             Ok(gameresult) | Err(gameresult) => GameResult(gameresult),
                         },
                     };
-                    peers.for_each(|oepi, tx_peer| {
-                        debug_verify!(tx_peer.unbounded_send(format!("{:?}: Transitioning to next phase", oepi).into())).unwrap();
+                    peers.for_each(|oepi| {
+                        VMessage::Info(format!("{:?}: Transitioning to next phase", oepi).into())
                     });
                 }
                 peers.ogamephase = Some(gamephase);
                 assert!(peers.ogamephase.is_some());
             } else {
-                peers.for_each(|oepi, tx_peer| {
-                    debug_verify!(tx_peer.unbounded_send(format!("{:?}: Waiting for more players.", oepi).into())).unwrap();
-                });
+                peers.for_each(|_oepi| VMessage::Info("Waiting for more players.".into()));
             }
             future::ok(())
         });

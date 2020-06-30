@@ -1,8 +1,9 @@
 use crate::util::*;
 use arrayvec::{self, ArrayVec};
 use std::{fmt, ops::Index, slice, str::FromStr};
+use serde::Serialize;
 
-plain_enum_mod!(modepi, EPlayerIndex {
+plain_enum_mod!(modepi, derive(Serialize,), map_derive(), EPlayerIndex {
     EPI0, EPI1, EPI2, EPI3,
 });
 define_static_value!(pub SStaticEPI0, EPlayerIndex, EPlayerIndex::EPI0);
