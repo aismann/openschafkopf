@@ -185,7 +185,44 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
             );
             let mut peers = debug_verify!(peers.lock()).unwrap();
             if let Some(mut gamephase) = peers.ogamephase.take() /*TODO take necessary here?*/ {
-                if let Some(activeplayerinfo) = gamephase.which_player_can_do_something() {
+                while gamephase.which_player_can_do_something().is_none() {
+                    use VGamePhaseGeneric::*;
+                    gamephase = match gamephase {
+                        DealCards(dealcards) => match dealcards.finish() {
+                            Ok(gamepreparations) => GamePreparations(gamepreparations),
+                            Err(dealcards) => DealCards(dealcards),
+                        },
+                        GamePreparations(gamepreparations) => match gamepreparations.finish() {
+                            Ok(VGamePreparationsFinish::DetermineRules(determinerules)) => DetermineRules(determinerules),
+                            Ok(VGamePreparationsFinish::DirectGame(game)) => Game(game),
+                            Ok(VGamePreparationsFinish::Stock(n_stock)) => {
+                                for epi in EPlayerIndex::values() {
+                                    if let Some(ref mut peer) = peers.mapepiopeer[epi] {
+                                        peer.n_money -= n_stock;
+                                    }
+                                }
+                                peers.n_stock += n_stock * EPlayerIndex::SIZE.as_num::<isize>();
+                                DealCards(SDealCards::new(static_ruleset(), peers.n_stock))
+                            },
+                            Err(gamepreparations) => GamePreparations(gamepreparations),
+                        }
+                        DetermineRules(determinerules) => match determinerules.finish() {
+                            Ok(game) => Game(game),
+                            Err(determinerules) => DetermineRules(determinerules),
+                        },
+                        Game(game) => match game.finish() {
+                            Ok(gameresult) => GameResult(gameresult),
+                            Err(game) => Game(game),
+                        },
+                        GameResult(gameresult) => match gameresult.finish() {
+                            Ok(gameresult) | Err(gameresult) => GameResult(gameresult),
+                        },
+                    };
+                    peers.for_each(|oepi| {
+                        VMessage::Info(format!("{:?}: Transitioning to next phase", oepi).into())
+                    });
+                }
+                if let Some(activeplayerinfo) = verify!(gamephase.which_player_can_do_something()) {
                     use VGamePhaseGeneric::*;
                     match activeplayerinfo {
                         DealCards(epi_doubling) => {
@@ -239,42 +276,6 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                             });
                         },
                     }
-                } else {
-                    use VGamePhaseGeneric::*;
-                    gamephase = match gamephase {
-                        DealCards(dealcards) => match dealcards.finish() {
-                            Ok(gamepreparations) => GamePreparations(gamepreparations),
-                            Err(dealcards) => DealCards(dealcards),
-                        },
-                        GamePreparations(gamepreparations) => match gamepreparations.finish() {
-                            Ok(VGamePreparationsFinish::DetermineRules(determinerules)) => DetermineRules(determinerules),
-                            Ok(VGamePreparationsFinish::DirectGame(game)) => Game(game),
-                            Ok(VGamePreparationsFinish::Stock(n_stock)) => {
-                                for epi in EPlayerIndex::values() {
-                                    if let Some(ref mut peer) = peers.mapepiopeer[epi] {
-                                        peer.n_money -= n_stock;
-                                    }
-                                }
-                                peers.n_stock += n_stock * EPlayerIndex::SIZE.as_num::<isize>();
-                                DealCards(SDealCards::new(static_ruleset(), peers.n_stock))
-                            },
-                            Err(gamepreparations) => GamePreparations(gamepreparations),
-                        }
-                        DetermineRules(determinerules) => match determinerules.finish() {
-                            Ok(game) => Game(game),
-                            Err(determinerules) => DetermineRules(determinerules),
-                        },
-                        Game(game) => match game.finish() {
-                            Ok(gameresult) => GameResult(gameresult),
-                            Err(game) => Game(game),
-                        },
-                        GameResult(gameresult) => match gameresult.finish() {
-                            Ok(gameresult) | Err(gameresult) => GameResult(gameresult),
-                        },
-                    };
-                    peers.for_each(|oepi| {
-                        VMessage::Info(format!("{:?}: Transitioning to next phase", oepi).into())
-                    });
                 }
                 peers.ogamephase = Some(gamephase);
                 assert!(peers.ogamephase.is_some());

@@ -23,4 +23,3 @@ let ws = new WebSocket("ws://localhost:8080");
 ws.onmessage = function(msg) {
     document.body.textContent = document.body.textContent + "<br/>" + msg.data;
 };
-ws.send("Initial message");
