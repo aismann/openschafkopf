@@ -48,11 +48,6 @@ type VGamePhaseActivePlayerInfo<'a> = VGamePhaseGeneric<
 >;
 type SActivelyPlayableRulesIdentifier = String;
 #[derive(Serialize)]
-enum VDetermineRulesAction {
-    AnnounceGame(SActivelyPlayableRulesIdentifier),
-    Resign,
-}
-#[derive(Serialize)]
 enum VGameAction {
     Stoss,
     Zugeben(SCard),
@@ -60,7 +55,7 @@ enum VGameAction {
 type VGamePhaseAction = VGamePhaseGeneric<
     /*DealCards announce_doubling*/ /*b_doubling*/bool,
     /*GamePreparations announce_game*/Option<SActivelyPlayableRulesIdentifier>,
-    /*DetermineRules*/VDetermineRulesAction,
+    /*DetermineRules*/Option<SActivelyPlayableRulesIdentifier>,
     /*Game*/VGameAction,
     /*GameResult*/(), // TODO? should players be able to "accept" result?
 >;
@@ -267,30 +262,39 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                                 }
                             });
                         },
-                        DetermineRules((_determinerules, (epi_determine, _vecrulegroup))) => {
+                        DetermineRules((determinerules, (epi_determine, vecrulegroup))) => {
                             peers.for_each(|oepi| {
                                 if Some(epi_determine)==oepi {
-                                    VMessage::Info(format!("Re-Announce game?"))
+                                    VMessage::Ask(
+                                        allowed_rules(
+                                            &vecrulegroup,
+                                            determinerules.fullhand(epi_determine),
+                                        )
+                                            .map(|orules|
+                                                VGamePhaseAction::DetermineRules(orules.map(TActivelyPlayableRules::to_string))
+                                            )
+                                            .collect()
+                                    )
                                 } else {
                                     VMessage::Info(format!("Re-Asking {:?} for game", epi_determine))
                                 }
                             });
                         },
-                        Game((_game, (epi_card, vecepi_stoss))) => {
+                        Game((game, (epi_card, vecepi_stoss))) => {
                             peers.for_each(|oepi| {
-                                match (Some(epi_card)==oepi, oepi.map_or(false, |epi| vecepi_stoss.contains(&epi))) {
-                                    (true, true) => {
-                                        VMessage::Info(format!("Card?, Stoss?"))
-                                    },
-                                    (true, false) => {
-                                        VMessage::Info(format!("Card?"))
-                                    },
-                                    (false, true) => {
-                                        VMessage::Info(format!("Stoss?"))
-                                    },
-                                    (false, false) => {
-                                        VMessage::Info(format!("Asking {:?} for card", epi_card))
-                                    },
+                                let mut vecmessage = Vec::new();
+                                if Some(epi_card)==oepi {
+                                    for card in game.ahand[epi_card].cards().iter() {
+                                        vecmessage.push(VGamePhaseAction::Game(VGameAction::Zugeben(*card)));
+                                    }
+                                }
+                                if oepi.map_or(false, |epi| vecepi_stoss.contains(&epi)) {
+                                    vecmessage.push(VGamePhaseAction::Game(VGameAction::Stoss));
+                                }
+                                if vecmessage.is_empty() {
+                                    VMessage::Info(format!("Asking {:?} for card", epi_card))
+                                } else {
+                                    VMessage::Ask(vecmessage)
                                 }
                             });
                         },
