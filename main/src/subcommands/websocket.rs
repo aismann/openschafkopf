@@ -7,14 +7,14 @@ use std::{
 use crate::util::*;
 use crate::game::*;
 use crate::rules::*;
-use crate::rules::ruleset::SRuleSet;
+use crate::rules::ruleset::{SRuleSet, allowed_rules};
 
 use futures::prelude::*;
 use futures::{
     channel::mpsc::{unbounded, UnboundedSender},
     future, pin_mut,
 };
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 use async_std::{
     net::{TcpListener, TcpStream},
@@ -23,7 +23,7 @@ use async_std::{
 use async_tungstenite::tungstenite::protocol::Message;
 use crate::primitives::*;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 enum VGamePhaseGeneric<DealCards, GamePreparations, DetermineRules, Game, GameResult> {
     DealCards(DealCards),
     GamePreparations(GamePreparations),
@@ -46,17 +46,20 @@ type VGamePhaseActivePlayerInfo<'a> = VGamePhaseGeneric<
     (&'a SGame, <SGame as TGamePhase>::ActivePlayerInfo),
     (&'a SGameResult, <SGameResult as TGamePhase>::ActivePlayerInfo),
 >;
+type SActivelyPlayableRulesIdentifier = String;
+#[derive(Serialize)]
 enum VDetermineRulesAction {
-    AnnounceGame(EPlayerIndex, Box<dyn TActivelyPlayableRules>),
-    Resign(EPlayerIndex),
+    AnnounceGame(SActivelyPlayableRulesIdentifier),
+    Resign,
 }
+#[derive(Serialize)]
 enum VGameAction {
-    Stoss(EPlayerIndex),
-    Zugeben(SCard, EPlayerIndex),
+    Stoss,
+    Zugeben(SCard),
 }
 type VGamePhaseAction = VGamePhaseGeneric<
-    /*DealCards announce_doubling*/(EPlayerIndex, /*b_doubling*/bool),
-    /*GamePreparations announce_game*/(EPlayerIndex, Option<Box<dyn TActivelyPlayableRules>>),
+    /*DealCards announce_doubling*/ /*b_doubling*/bool,
+    /*GamePreparations announce_game*/Option<SActivelyPlayableRulesIdentifier>,
     /*DetermineRules*/VDetermineRulesAction,
     /*Game*/VGameAction,
     /*GameResult*/(), // TODO? should players be able to "accept" result?
@@ -165,6 +168,7 @@ impl SPeers {
 #[derive(Serialize)]
 enum VMessage {
     Info(String),
+    Ask(Vec<VGamePhaseAction>),
 }
 
 async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sockaddr: SocketAddr) {
@@ -232,16 +236,32 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                         DealCards((_dealcards, epi_doubling)) => {
                             peers.for_each(|oepi| {
                                 if Some(epi_doubling)==oepi {
-                                    VMessage::Info(format!("Double?"))
+                                    VMessage::Ask(
+                                        [true, false]
+                                            .iter()
+                                            .map(|b_doubling| 
+                                                VGamePhaseAction::DealCards(*b_doubling)
+                                            )
+                                            .collect()
+                                    )
                                 } else {
                                     VMessage::Info(format!("Asking {:?} for doubling", epi_doubling))
                                 }
                             });
                         },
-                        GamePreparations((_gamepreparations, epi_announce_game)) => {
+                        GamePreparations((gamepreparations, epi_announce_game)) => {
                             peers.for_each(|oepi| {
                                 if Some(epi_announce_game)==oepi {
-                                    VMessage::Info(format!("Announce game?"))
+                                    VMessage::Ask(
+                                        allowed_rules(
+                                            &gamepreparations.ruleset.avecrulegroup[epi_announce_game],
+                                            gamepreparations.fullhand(epi_announce_game),
+                                        )
+                                            .map(|orules|
+                                                VGamePhaseAction::GamePreparations(orules.map(TActivelyPlayableRules::to_string))
+                                            )
+                                            .collect()
+                                    )
                                 } else {
                                     VMessage::Info(format!("Asking {:?} for game", epi_announce_game))
                                 }
