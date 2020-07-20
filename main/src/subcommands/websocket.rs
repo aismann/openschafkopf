@@ -39,12 +39,12 @@ type VGamePhase = VGamePhaseGeneric<
     SGame,
     SGameResult,
 >;
-type VGamePhaseActivePlayerInfo = VGamePhaseGeneric<
-    <SDealCards as TGamePhase>::ActivePlayerInfo,
-    <SGamePreparations as TGamePhase>::ActivePlayerInfo,
-    <SDetermineRules as TGamePhase>::ActivePlayerInfo,
-    <SGame as TGamePhase>::ActivePlayerInfo,
-    <SGameResult as TGamePhase>::ActivePlayerInfo,
+type VGamePhaseActivePlayerInfo<'a> = VGamePhaseGeneric<
+    (&'a SDealCards, <SDealCards as TGamePhase>::ActivePlayerInfo),
+    (&'a SGamePreparations, <SGamePreparations as TGamePhase>::ActivePlayerInfo),
+    (&'a SDetermineRules, <SDetermineRules as TGamePhase>::ActivePlayerInfo),
+    (&'a SGame, <SGame as TGamePhase>::ActivePlayerInfo),
+    (&'a SGameResult, <SGameResult as TGamePhase>::ActivePlayerInfo),
 >;
 enum VDetermineRulesAction {
     AnnounceGame(EPlayerIndex, Box<dyn TActivelyPlayableRules>),
@@ -65,12 +65,16 @@ type VGamePhaseAction = VGamePhaseGeneric<
 impl VGamePhase {
     fn which_player_can_do_something(&self) -> Option<VGamePhaseActivePlayerInfo> {
         use VGamePhaseGeneric::*;
+        fn internal<GamePhase: TGamePhase>(gamephase: &GamePhase) -> Option<(&GamePhase, GamePhase::ActivePlayerInfo)> {
+            gamephase.which_player_can_do_something()
+                .map(|activeplayerinfo| (gamephase, activeplayerinfo))
+        }
         match self {
-            DealCards(dealcards) => dealcards.which_player_can_do_something().map(DealCards),
-            GamePreparations(gamepreparations) => gamepreparations.which_player_can_do_something().map(GamePreparations),
-            DetermineRules(determinerules) => determinerules.which_player_can_do_something().map(DetermineRules),
-            Game(game) => game.which_player_can_do_something().map(Game),
-            GameResult(gameresult) => gameresult.which_player_can_do_something().map(GameResult),
+            DealCards(dealcards) => internal(dealcards).map(DealCards),
+            GamePreparations(gamepreparations) => internal(gamepreparations).map(GamePreparations),
+            DetermineRules(determinerules) => internal(determinerules).map(DetermineRules),
+            Game(game) => internal(game).map(Game),
+            GameResult(gameresult) => internal(gameresult).map(GameResult),
         }
     }
 }
@@ -222,10 +226,10 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                         VMessage::Info(format!("{:?}: Transitioning to next phase", oepi).into())
                     });
                 }
-                if let Some(activeplayerinfo) = verify!(gamephase.which_player_can_do_something()) {
+                if let Some(whichplayercandosomething) = verify!(gamephase.which_player_can_do_something()) {
                     use VGamePhaseGeneric::*;
-                    match activeplayerinfo {
-                        DealCards(epi_doubling) => {
+                    match whichplayercandosomething {
+                        DealCards((_dealcards, epi_doubling)) => {
                             peers.for_each(|oepi| {
                                 if Some(epi_doubling)==oepi {
                                     VMessage::Info(format!("Double?"))
@@ -234,7 +238,7 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                                 }
                             });
                         },
-                        GamePreparations(epi_announce_game) => {
+                        GamePreparations((_gamepreparations, epi_announce_game)) => {
                             peers.for_each(|oepi| {
                                 if Some(epi_announce_game)==oepi {
                                     VMessage::Info(format!("Announce game?"))
@@ -243,7 +247,7 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                                 }
                             });
                         },
-                        DetermineRules((epi_determine, _vecrulegroup)) => {
+                        DetermineRules((_determinerules, (epi_determine, _vecrulegroup))) => {
                             peers.for_each(|oepi| {
                                 if Some(epi_determine)==oepi {
                                     VMessage::Info(format!("Re-Announce game?"))
@@ -252,7 +256,7 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                                 }
                             });
                         },
-                        Game((epi_card, vecepi_stoss)) => {
+                        Game((_game, (epi_card, vecepi_stoss))) => {
                             peers.for_each(|oepi| {
                                 match (Some(epi_card)==oepi, oepi.map_or(false, |epi| vecepi_stoss.contains(&epi))) {
                                     (true, true) => {
@@ -270,7 +274,7 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                                 }
                             });
                         },
-                        GameResult(()) => {
+                        GameResult((_gameresult, ())) => {
                             peers.for_each(|_oepi| {
                                 VMessage::Info(format!("Game finished"))
                             });
