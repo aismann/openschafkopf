@@ -181,12 +181,16 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
             future::ready(!msg.is_close())
         })
         .try_for_each(|msg| {
-            println!(
-                "Received a message from {}: {}",
-                sockaddr,
-                debug_verify!(msg.to_text()).unwrap()
-            );
+            let str_msg = debug_verify!(msg.to_text()).unwrap();
             let mut peers = debug_verify!(peers.lock()).unwrap();
+            let oepi = EPlayerIndex::values()
+                .find(|epi| peers.mapepiopeer[*epi].as_ref().map(|peer| peer.sockaddr)==Some(sockaddr));
+            println!(
+                "Received a message from {} ({:?}): {}",
+                sockaddr,
+                oepi,
+                str_msg,
+            );
             if let Some(mut gamephase) = peers.ogamephase.take() /*TODO take necessary here?*/ {
                 while gamephase.which_player_can_do_something().is_none() {
                     use VGamePhaseGeneric::*;
