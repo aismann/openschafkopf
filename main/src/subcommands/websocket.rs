@@ -199,28 +199,26 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                             Err(e) => println!("Error {}", e),
                         };
                     }
-                    gamephase = match (gamephase, serde_json::from_str(str_msg)) {
-                        (VGamePhase::DealCards(mut dealcards), Ok(VGamePhaseAction::DealCards(b_doubling))) => {
+                    match (&mut gamephase, serde_json::from_str(str_msg)) {
+                        (VGamePhase::DealCards(ref mut dealcards), Ok(VGamePhaseAction::DealCards(b_doubling))) => {
                             handle_err(dealcards.announce_doubling(epi, b_doubling));
-                            VGamePhase::DealCards(dealcards)
                         },
-                        (VGamePhase::GamePreparations(mut gamepreparations), Ok(VGamePhaseAction::GamePreparations(orulesid))) => {
+                        (VGamePhase::GamePreparations(ref mut gamepreparations), Ok(VGamePhaseAction::GamePreparations(ref orulesid))) => {
                             if let Some(orules) = {
                                 let oorules = allowed_rules(
                                     &gamepreparations.ruleset.avecrulegroup[epi],
                                     gamepreparations.fullhand(epi),
                                 )
                                     .find(|orules|
-                                        orules.map(TActivelyPlayableRules::to_string)==orulesid
+                                        &orules.map(TActivelyPlayableRules::to_string)==orulesid
                                     )
                                     .map(|orules| orules.map(TActivelyPlayableRulesBoxClone::box_clone));
                                 oorules.clone() // TODO needed?
                             } {
                                 handle_err(gamepreparations.announce_game(epi, orules));
                             }
-                            VGamePhase::GamePreparations(gamepreparations)
                         },
-                        (VGamePhase::DetermineRules(mut determinerules), Ok(VGamePhaseAction::DetermineRules(orulesid))) => {
+                        (VGamePhase::DetermineRules(ref mut determinerules), Ok(VGamePhaseAction::DetermineRules(ref orulesid))) => {
                             if let Some((_epi_active, vecrulegroup)) = determinerules.which_player_can_do_something() {
                                 if let Some(orules) = {
                                     let oorules = allowed_rules(
@@ -228,7 +226,7 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                                         determinerules.fullhand(epi),
                                     )
                                         .find(|orules|
-                                            orules.map(TActivelyPlayableRules::to_string)==orulesid
+                                            &orules.map(TActivelyPlayableRules::to_string)==orulesid
                                         );
                                     oorules.clone() // TODO clone needed?
                                 } {
@@ -239,20 +237,16 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                                     });
                                 }
                             }
-                            VGamePhase::DetermineRules(determinerules)
                         },
-                        (VGamePhase::Game(mut game), Ok(VGamePhaseAction::Game(gameaction))) => {
+                        (VGamePhase::Game(ref mut game), Ok(VGamePhaseAction::Game(ref gameaction))) => {
                             handle_err(match gameaction {
                                 VGameAction::Stoss => game.stoss(epi),
-                                VGameAction::Zugeben(card) => game.zugeben(card, epi),
+                                VGameAction::Zugeben(card) => game.zugeben(*card, epi),
                             });
-                            VGamePhase::Game(game)
                         },
-                        (VGamePhase::GameResult(gameresult), Ok(VGamePhaseAction::GameResult(()))) => {
-                            VGamePhase::GameResult(gameresult)
+                        (VGamePhase::GameResult(_gameresult), Ok(VGamePhaseAction::GameResult(()))) => {
                         },
-                        (gamephase, _cmd) => {
-                            gamephase
+                        (_gamephase, _cmd) => {
                         },
                     };
                 }
