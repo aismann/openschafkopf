@@ -21,5 +21,23 @@ interface Cards {
 
 let ws = new WebSocket("ws://localhost:8080");
 ws.onmessage = function(msg) {
-    document.body.textContent = document.body.textContent + "<br/>" + msg.data;
+    let any_parsed = JSON.parse(msg.data);
+    console.log(any_parsed);
+    // any_parsed[0]: EPlayerIndex
+    // any_parsed[1]: VMessage
+    if ("Ask" in any_parsed[1]) {
+        let paragraph_btns = document.createElement("p");
+        for (let x of any_parsed[1]["Ask"]) {
+            console.log(x);
+            let btn = document.createElement("BUTTON");
+            btn.appendChild(document.createTextNode(JSON.stringify(x)));
+            btn.onclick = function () {
+                console.log(x);
+                ws.send(JSON.stringify(x));
+            };
+            paragraph_btns.appendChild(btn);
+            document.body.appendChild(paragraph_btns);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+    }
 };

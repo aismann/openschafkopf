@@ -47,7 +47,7 @@ type VGamePhaseActivePlayerInfo<'a> = VGamePhaseGeneric<
     (&'a SGameResult, <SGameResult as TGamePhase>::ActivePlayerInfo),
 >;
 type SActivelyPlayableRulesIdentifier = String;
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 enum VGameAction {
     Stoss,
     Zugeben(SCard),
@@ -192,6 +192,70 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                 str_msg,
             );
             if let Some(mut gamephase) = peers.ogamephase.take() /*TODO take necessary here?*/ {
+                if let Some(epi) = oepi {
+                    fn handle_err<T, E: std::fmt::Display>(res: Result<T, E>) {
+                        match res {
+                            Ok(_) => {},
+                            Err(e) => println!("Error {}", e),
+                        };
+                    }
+                    gamephase = match (gamephase, serde_json::from_str(str_msg)) {
+                        (VGamePhase::DealCards(mut dealcards), Ok(VGamePhaseAction::DealCards(b_doubling))) => {
+                            handle_err(dealcards.announce_doubling(epi, b_doubling));
+                            VGamePhase::DealCards(dealcards)
+                        },
+                        (VGamePhase::GamePreparations(mut gamepreparations), Ok(VGamePhaseAction::GamePreparations(orulesid))) => {
+                            if let Some(orules) = {
+                                let oorules = allowed_rules(
+                                    &gamepreparations.ruleset.avecrulegroup[epi],
+                                    gamepreparations.fullhand(epi),
+                                )
+                                    .find(|orules|
+                                        orules.map(TActivelyPlayableRules::to_string)==orulesid
+                                    )
+                                    .map(|orules| orules.map(TActivelyPlayableRulesBoxClone::box_clone));
+                                oorules.clone() // TODO needed?
+                            } {
+                                handle_err(gamepreparations.announce_game(epi, orules));
+                            }
+                            VGamePhase::GamePreparations(gamepreparations)
+                        },
+                        (VGamePhase::DetermineRules(mut determinerules), Ok(VGamePhaseAction::DetermineRules(orulesid))) => {
+                            if let Some((_epi_active, vecrulegroup)) = determinerules.which_player_can_do_something() {
+                                if let Some(orules) = {
+                                    let oorules = allowed_rules(
+                                        &vecrulegroup,
+                                        determinerules.fullhand(epi),
+                                    )
+                                        .find(|orules|
+                                            orules.map(TActivelyPlayableRules::to_string)==orulesid
+                                        );
+                                    oorules.clone() // TODO clone needed?
+                                } {
+                                    handle_err(if let Some(rules) = orules {
+                                        determinerules.announce_game(epi, TActivelyPlayableRulesBoxClone::box_clone(rules))
+                                    } else {
+                                        determinerules.resign(epi)
+                                    });
+                                }
+                            }
+                            VGamePhase::DetermineRules(determinerules)
+                        },
+                        (VGamePhase::Game(mut game), Ok(VGamePhaseAction::Game(gameaction))) => {
+                            handle_err(match gameaction {
+                                VGameAction::Stoss => game.stoss(epi),
+                                VGameAction::Zugeben(card) => game.zugeben(card, epi),
+                            });
+                            VGamePhase::Game(game)
+                        },
+                        (VGamePhase::GameResult(gameresult), Ok(VGamePhaseAction::GameResult(()))) => {
+                            VGamePhase::GameResult(gameresult)
+                        },
+                        (gamephase, _cmd) => {
+                            gamephase
+                        },
+                    };
+                }
                 while gamephase.which_player_can_do_something().is_none() {
                     use VGamePhaseGeneric::*;
                     gamephase = match gamephase {
