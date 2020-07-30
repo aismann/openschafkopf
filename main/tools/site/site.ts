@@ -24,10 +24,26 @@ ws.onmessage = function(msg) {
     let any_parsed = JSON.parse(msg.data);
     console.log(any_parsed);
     // any_parsed[0]: EPlayerIndex
-    // any_parsed[1]: VMessage
-    if ("Ask" in any_parsed[1]) {
+    // any_parsed[1]: vectplstrstr_caption_message_zugeben
+    // any_parsed[2]: VMessage
+    if (Array.isArray(any_parsed[1])) {
         let paragraph_btns = document.createElement("p");
-        for (let x of any_parsed[1]["Ask"]) {
+        for (let x of any_parsed[1]) {
+            console.log(x);
+            let btn = document.createElement("BUTTON");
+            btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
+            btn.onclick = function () {
+                console.log(x[1]);
+                ws.send(JSON.stringify(x[1]));
+            };
+            paragraph_btns.appendChild(btn);
+            document.body.appendChild(paragraph_btns);
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+    }
+    if ("Ask" in any_parsed[2]) {
+        let paragraph_btns = document.createElement("p");
+        for (let x of any_parsed[2]["Ask"]) {
             console.log(x);
             let btn = document.createElement("BUTTON");
             btn.appendChild(document.createTextNode(JSON.stringify(x)));

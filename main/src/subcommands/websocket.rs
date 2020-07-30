@@ -144,11 +144,17 @@ impl SPeers {
         self.vecpeer.retain(|peer| peer.sockaddr!=*sockaddr);
     }
 
-    fn for_each(&self, mut f: impl FnMut(Option<EPlayerIndex>)->VMessage) {
+    fn for_each(&self, mut f: impl FnMut(Option<EPlayerIndex>)->(Vec<SCard>, VMessage)) {
         let mut communicate = |oepi, txmsg: UnboundedSender<_>| {
-            let msg = f(oepi);
+            let (veccard, msg) = f(oepi);
             debug_verify!(txmsg.unbounded_send(
-                debug_verify!(serde_json::to_string(&(oepi, msg))).unwrap().into()
+                debug_verify!(serde_json::to_string(&(
+                    oepi,
+                    veccard.into_iter()
+                        .map(|card| (card.to_string(), VGamePhaseAction::Game(VGameAction::Zugeben(card))))
+                        .collect::<Vec<_>>(),
+                    msg
+                ))).unwrap().into()
             )).unwrap();
         };
         for epi in EPlayerIndex::values() {
@@ -262,16 +268,14 @@ impl SPeers {
                         Ok(gameresult) | Err(gameresult) => GameResult(gameresult),
                     },
                 };
-                self.for_each(|oepi| {
-                    VMessage::Info(format!("{:?}: Transitioning to next phase", oepi).into())
-                });
             }
             if let Some(whichplayercandosomething) = verify!(gamephase.which_player_can_do_something()) {
                 use VGamePhaseGeneric::*;
                 match whichplayercandosomething {
-                    DealCards((_dealcards, epi_doubling)) => {
+                    DealCards((dealcards, epi_doubling)) => {
                         self.for_each(|oepi| {
-                            if Some(epi_doubling)==oepi {
+                            if Some(epi_doubling)==oepi {(
+                                dealcards.first_hand_for(epi_doubling).into(),
                                 VMessage::Ask(
                                     [true, false]
                                         .iter()
@@ -279,15 +283,17 @@ impl SPeers {
                                             VGamePhaseAction::DealCards(*b_doubling)
                                         )
                                         .collect()
-                                )
-                            } else {
-                                VMessage::Info(format!("Asking {:?} for doubling", epi_doubling))
-                            }
+                                ),
+                            )} else {(
+                                vec![],
+                                VMessage::Info(format!("Asking {:?} for doubling", epi_doubling)),
+                            )}
                         });
                     },
                     GamePreparations((gamepreparations, epi_announce_game)) => {
                         self.for_each(|oepi| {
-                            if Some(epi_announce_game)==oepi {
+                            if Some(epi_announce_game)==oepi {(
+                                gamepreparations.fullhand(epi_announce_game).get().cards().to_vec(),
                                 VMessage::Ask(
                                     allowed_rules(
                                         &gamepreparations.ruleset.avecrulegroup[epi_announce_game],
@@ -297,15 +303,17 @@ impl SPeers {
                                             VGamePhaseAction::GamePreparations(orules.map(TActivelyPlayableRules::to_string))
                                         )
                                         .collect()
-                                )
-                            } else {
-                                VMessage::Info(format!("Asking {:?} for game", epi_announce_game))
-                            }
+                                ),
+                            )} else {(
+                                vec![],
+                                VMessage::Info(format!("Asking {:?} for game", epi_announce_game)),
+                            )}
                         });
                     },
                     DetermineRules((determinerules, (epi_determine, vecrulegroup))) => {
                         self.for_each(|oepi| {
-                            if Some(epi_determine)==oepi {
+                            if Some(epi_determine)==oepi {(
+                                determinerules.fullhand(epi_determine).get().cards().to_vec(),
                                 VMessage::Ask(
                                     allowed_rules(
                                         &vecrulegroup,
@@ -315,41 +323,51 @@ impl SPeers {
                                             VGamePhaseAction::DetermineRules(orules.map(TActivelyPlayableRules::to_string))
                                         )
                                         .collect()
-                                )
-                            } else {
-                                VMessage::Info(format!("Re-Asking {:?} for game", epi_determine))
-                            }
+                                ),
+                            )} else {(
+                                vec![],
+                                VMessage::Info(format!("Re-Asking {:?} for game", epi_determine)),
+                            )}
                         });
                     },
                     Game((game, (epi_card, vecepi_stoss))) => {
                         self.for_each(|oepi| {
-                            let mut vecmessage = Vec::new();
-                            if Some(epi_card)==oepi {
-                                for card in game.ahand[epi_card].cards().iter() {
-                                    vecmessage.push(VGamePhaseAction::Game(VGameAction::Zugeben(*card)));
+                            if let Some(epi)=oepi {
+                                let mut veccard = Vec::new();
+                                if epi_card==epi {
+                                    for card in game.ahand[epi_card].cards().iter() {
+                                        veccard.push(*card);
+                                    }
                                 }
-                            }
-                            if oepi.map_or(false, |epi| vecepi_stoss.contains(&epi)) {
-                                vecmessage.push(VGamePhaseAction::Game(VGameAction::Stoss));
-                            }
-                            if vecmessage.is_empty() {
+                                let mut vecmessage = Vec::new();
+                                if vecepi_stoss.contains(&epi) {
+                                    vecmessage.push(VGamePhaseAction::Game(VGameAction::Stoss));
+                                }
+                                if veccard.is_empty() && vecmessage.is_empty() {(
+                                    veccard, // empty
+                                    VMessage::Info(format!("Asking {:?} for card", epi_card))
+                                )} else {(
+                                    veccard,
+                                    VMessage::Ask(vecmessage)
+                                )}
+                            } else {(
+                                vec![],
                                 VMessage::Info(format!("Asking {:?} for card", epi_card))
-                            } else {
-                                VMessage::Ask(vecmessage)
-                            }
+                            )}
                         });
                     },
                     GameResult((_gameresult, ())) => {
-                        self.for_each(|_oepi| {
-                            VMessage::Info(format!("Game finished"))
-                        });
+                        self.for_each(|_oepi| {(
+                            vec![],
+                            VMessage::Info(format!("Game finished")),
+                        )});
                     },
                 }
             }
             self.ogamephase = Some(gamephase);
             assert!(self.ogamephase.is_some());
         } else {
-            self.for_each(|_oepi| VMessage::Info("Waiting for more players.".into()));
+            self.for_each(|_oepi| (vec![], VMessage::Info("Waiting for more players.".into())));
         }
     }
 }
