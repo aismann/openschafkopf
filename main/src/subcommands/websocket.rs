@@ -265,7 +265,21 @@ impl SPeers {
                         Err(game) => Game(game),
                     },
                     GameResult(gameresult) => match gameresult.finish() {
-                        Ok(gameresult) | Err(gameresult) => GameResult(gameresult),
+                        Ok(gameresult) | Err(gameresult) => {
+                            for epi in EPlayerIndex::values() {
+                                if let Some(ref mut peer) = self.mapepiopeer[epi] {
+                                    peer.n_money += gameresult.an_payout[epi];
+                                }
+                            }
+                            let n_pay_into_stock = -gameresult.an_payout.iter().sum::<isize>();
+                            assert!(
+                                n_pay_into_stock >= 0 // either pay into stock...
+                                || n_pay_into_stock == -self.n_stock // ... or exactly empty it (assume that this is always possible)
+                            );
+                            self.n_stock += n_pay_into_stock;
+                            assert!(0 <= self.n_stock);
+                            DealCards(SDealCards::new(static_ruleset(), self.n_stock))
+                        },
                     },
                 };
             }
