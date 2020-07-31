@@ -229,7 +229,8 @@ impl SPeers {
                             VGameAction::Zugeben(card) => game.zugeben(*card, epi),
                         });
                     },
-                    (VGamePhase::GameResult(_gameresult), Ok(VGamePhaseAction::GameResult(()))) => {
+                    (VGamePhase::GameResult(gameresult), Ok(VGamePhaseAction::GameResult(()))) => {
+                        gameresult.confirm(epi);
                     },
                     (_gamephase, _cmd) => {
                     },
@@ -245,13 +246,13 @@ impl SPeers {
                     GamePreparations(gamepreparations) => match gamepreparations.finish() {
                         Ok(VGamePreparationsFinish::DetermineRules(determinerules)) => DetermineRules(determinerules),
                         Ok(VGamePreparationsFinish::DirectGame(game)) => Game(game),
-                        Ok(VGamePreparationsFinish::Stock(n_stock)) => {
-                            for epi in EPlayerIndex::values() {
-                                if let Some(ref mut peer) = self.mapepiopeer[epi] {
-                                    peer.n_money -= n_stock;
+                        Ok(VGamePreparationsFinish::Stock(gameresult)) => {
+                            let mapepiopeer = &mut self.mapepiopeer;
+                            gameresult.apply_payout(&mut self.n_stock, |epi, n_payout| {
+                                if let Some(ref mut peer) = mapepiopeer[epi] {
+                                    peer.n_money += n_payout;
                                 }
-                            }
-                            self.n_stock += n_stock * EPlayerIndex::SIZE.as_num::<isize>();
+                            });
                             DealCards(SDealCards::new(static_ruleset(), self.n_stock))
                         },
                         Err(gamepreparations) => GamePreparations(gamepreparations),
@@ -370,10 +371,14 @@ impl SPeers {
                             )}
                         });
                     },
-                    GameResult((_gameresult, ())) => {
-                        self.for_each(|_oepi| {(
+                    GameResult((_gameresult, mapepib_confirmed)) => {
+                        self.for_each(|oepi| {(
                             vec![],
-                            VMessage::Info(format!("Game finished")),
+                            if oepi.map_or(false, |epi| !mapepib_confirmed[epi]) {
+                                VMessage::Ask(vec![VGamePhaseAction::GameResult(())])
+                            } else {
+                                VMessage::Info("Game finished".into())
+                            },
                         )});
                     },
                 }

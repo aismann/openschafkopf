@@ -160,6 +160,7 @@ impl TGamePhase for SGamePreparations {
                         }
                     };
                     VGamePreparationsFinish::Stock(SGameResult{
+                        mapepib_confirmed: EPlayerIndex::map_from_fn(|_epi| false),
                         an_payout: EPlayerIndex::map_from_fn(|_epi| -n_stock),
                     })
                 }
@@ -456,6 +457,7 @@ impl TGamePhase for SGame {
     fn finish_success(self) -> Self::Finish {
         assert!(self.kurzlang().cards_per_player()==self.completed_stichs().len());
         SGameResult {
+            mapepib_confirmed: EPlayerIndex::map_from_fn(|_epi| false),
             an_payout : self.rules.payout(
                 SStichSequenceGameFinished::new(&self.stichseq),
                 stoss_and_doublings(&self.vecstoss, &self.doublings),
@@ -546,16 +548,19 @@ impl SGame {
 
 #[derive(Debug)]
 pub struct SGameResult {
+    mapepib_confirmed: EnumMap<EPlayerIndex, bool>, // TODO? enumset
     // TODO store all information about finished game
     pub an_payout : EnumMap<EPlayerIndex, isize>,
 }
 
 impl TGamePhase for SGameResult { // "absorbing state"
-    type ActivePlayerInfo = ();
+    type ActivePlayerInfo = EnumMap<EPlayerIndex, bool>;
     type Finish = SGameResult;
 
     fn which_player_can_do_something(&self) -> Option<Self::ActivePlayerInfo> {
-        Some(())
+        if_then_some!(self.mapepib_confirmed.iter().any(|b_confirmed| !b_confirmed),
+            self.mapepib_confirmed.clone()
+        )
     }
     fn finish_success(self) -> Self::Finish {
         self
@@ -574,6 +579,10 @@ impl SGameResult {
         );
         *n_stock += n_pay_into_stock;
         assert!(0 <= *n_stock);
+    }
+
+    pub fn confirm(&mut self, epi: EPlayerIndex) {
+        self.mapepib_confirmed[epi] = true;
     }
 }
 
