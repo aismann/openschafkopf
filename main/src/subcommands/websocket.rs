@@ -47,7 +47,7 @@ type VGamePhaseActivePlayerInfo<'a> = VGamePhaseGeneric<
     (&'a SGameResult, <SGameResult as TGamePhase>::ActivePlayerInfo),
 >;
 type SActivelyPlayableRulesIdentifier = String;
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 enum VGameAction {
     Stoss,
     Zugeben(SCard),
@@ -109,7 +109,6 @@ struct SPeers {
 }
 impl SPeers {
     fn insert(&mut self, peer: SPeer) {
-        let sockaddr = peer.sockaddr;
         match self.mapepiopeer
             .iter_mut()
             .find(|opeer| opeer.is_none())
@@ -131,7 +130,10 @@ impl SPeers {
                 static_ruleset(),
                 self.n_stock,
             )));
-            self.send_msg(sockaddr, ""); // To trigger game logic. TODO beautify instead of dummy msg.
+            self.send_msg(
+                /*oepi*/None,
+                /*ogamephaseaction*/None,
+            ); // To trigger game logic. TODO beautify instead of dummy msg.
         }
     }
 
@@ -167,15 +169,8 @@ impl SPeers {
         }
     }
 
-    fn send_msg(&mut self, sockaddr: SocketAddr, str_msg: &str) {
-        let oepi = EPlayerIndex::values()
-            .find(|epi| self.mapepiopeer[*epi].as_ref().map(|peer| peer.sockaddr)==Some(sockaddr));
-        println!(
-            "Received a message from {} ({:?}): {}",
-            sockaddr,
-            oepi,
-            str_msg,
-        );
+    fn send_msg(&mut self, oepi: Option<EPlayerIndex>, ogamephaseaction: Option<VGamePhaseAction>) {
+        println!("send_msg({:?}, {:?})", oepi, ogamephaseaction);
         if let Some(mut gamephase) = self.ogamephase.take() /*TODO take necessary here?*/ {
             if let Some(epi) = oepi {
                 fn handle_err<T, E: std::fmt::Display>(res: Result<T, E>) {
@@ -184,11 +179,11 @@ impl SPeers {
                         Err(e) => println!("Error {}", e),
                     };
                 }
-                match (&mut gamephase, serde_json::from_str(str_msg)) {
-                    (VGamePhase::DealCards(ref mut dealcards), Ok(VGamePhaseAction::DealCards(b_doubling))) => {
+                match (&mut gamephase, ogamephaseaction) {
+                    (VGamePhase::DealCards(ref mut dealcards), Some(VGamePhaseAction::DealCards(b_doubling))) => {
                         handle_err(dealcards.announce_doubling(epi, b_doubling));
                     },
-                    (VGamePhase::GamePreparations(ref mut gamepreparations), Ok(VGamePhaseAction::GamePreparations(ref orulesid))) => {
+                    (VGamePhase::GamePreparations(ref mut gamepreparations), Some(VGamePhaseAction::GamePreparations(ref orulesid))) => {
                         if let Some(orules) = {
                             let oorules = allowed_rules(
                                 &gamepreparations.ruleset.avecrulegroup[epi],
@@ -203,7 +198,7 @@ impl SPeers {
                             handle_err(gamepreparations.announce_game(epi, orules));
                         }
                     },
-                    (VGamePhase::DetermineRules(ref mut determinerules), Ok(VGamePhaseAction::DetermineRules(ref orulesid))) => {
+                    (VGamePhase::DetermineRules(ref mut determinerules), Some(VGamePhaseAction::DetermineRules(ref orulesid))) => {
                         if let Some((_epi_active, vecrulegroup)) = determinerules.which_player_can_do_something() {
                             if let Some(orules) = {
                                 let oorules = allowed_rules(
@@ -223,13 +218,13 @@ impl SPeers {
                             }
                         }
                     },
-                    (VGamePhase::Game(ref mut game), Ok(VGamePhaseAction::Game(ref gameaction))) => {
+                    (VGamePhase::Game(ref mut game), Some(VGamePhaseAction::Game(ref gameaction))) => {
                         handle_err(match gameaction {
                             VGameAction::Stoss => game.stoss(epi),
                             VGameAction::Zugeben(card) => game.zugeben(*card, epi),
                         });
                     },
-                    (VGamePhase::GameResult(gameresult), Ok(VGamePhaseAction::GameResult(()))) => {
+                    (VGamePhase::GameResult(gameresult), Some(VGamePhaseAction::GameResult(()))) => {
                         gameresult.confirm(epi);
                     },
                     (_gamephase, _cmd) => {
@@ -414,7 +409,18 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
         .try_for_each(|msg| {
             let str_msg = debug_verify!(msg.to_text()).unwrap();
             let mut peers = debug_verify!(peers.lock()).unwrap();
-            peers.send_msg(sockaddr, str_msg);
+            let oepi = EPlayerIndex::values()
+                .find(|epi| peers.mapepiopeer[*epi].as_ref().map(|peer| peer.sockaddr)==Some(sockaddr));
+            println!(
+                "Received a message from {} ({:?}): {}",
+                sockaddr,
+                oepi,
+                str_msg,
+            );
+            match serde_json::from_str(str_msg) {
+                Ok(gamephaseaction) => peers.send_msg(oepi, Some(gamephaseaction)),
+                Err(e) => println!("Error: {}", e),
+            }
             future::ok(())
         });
     let receive_from_others = rxmsg.map(Ok).forward(sink_ws_out);
