@@ -192,8 +192,14 @@ impl SPeers {
                 if let Some(gamephaseaction) = ogamephaseaction {
                     if let Some(ref mut peer) = self.mapepiopeer[epi] {
                         use std::mem::discriminant;
-                        if Some(discriminant(&gamephaseaction))==peer.otimeoutcmd.as_ref().map(|timeoutcmd| discriminant(&timeoutcmd.gamephaseaction)) {
-                            peer.otimeoutcmd = None;
+                        match peer.otimeoutcmd.as_ref() {
+                            None => (),
+                            Some(timeoutcmd) => {
+                                if discriminant(&gamephaseaction)==discriminant(&timeoutcmd.gamephaseaction) {
+                                    timeoutcmd.aborthandle.abort();
+                                    peer.otimeoutcmd = None;
+                                }
+                            },
                         }
                     }
                     match (&mut gamephase, gamephaseaction) {
