@@ -15,6 +15,7 @@ use futures::{
     future, pin_mut,
 };
 use serde::{Serialize, Deserialize};
+use std::task::{Context, Poll, Waker};
 
 use async_std::{
     net::{TcpListener, TcpStream},
@@ -22,8 +23,9 @@ use async_std::{
 };
 use async_tungstenite::tungstenite::protocol::Message;
 use crate::primitives::*;
+use rand::prelude::*;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 enum VGamePhaseGeneric<DealCards, GamePreparations, DetermineRules, Game, GameResult> {
     DealCards(DealCards),
     GamePreparations(GamePreparations),
@@ -47,7 +49,7 @@ type VGamePhaseActivePlayerInfo<'a> = VGamePhaseGeneric<
     (&'a SGameResult, <SGameResult as TGamePhase>::ActivePlayerInfo),
 >;
 type SActivelyPlayableRulesIdentifier = String;
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 enum VGameAction {
     Stoss,
     Zugeben(SCard),
@@ -108,7 +110,7 @@ struct SPeers {
     n_stock: isize, // TODO would that be better within VGamePhase?
 }
 impl SPeers {
-    fn insert(&mut self, peer: SPeer) {
+    fn insert(&mut self, self_mutex: Arc<Mutex<Self>>, peer: SPeer) {
         match self.mapepiopeer
             .iter_mut()
             .find(|opeer| opeer.is_none())
@@ -131,6 +133,7 @@ impl SPeers {
                 self.n_stock,
             )));
             self.send_msg(
+                self_mutex,
                 /*oepi*/None,
                 /*ogamephaseaction*/None,
             ); // To trigger game logic. TODO beautify instead of dummy msg.
@@ -169,7 +172,7 @@ impl SPeers {
         }
     }
 
-    fn send_msg(&mut self, oepi: Option<EPlayerIndex>, ogamephaseaction: Option<VGamePhaseAction>) {
+    fn send_msg(&mut self, /*TODO avoid this parameter*/self_mutex: Arc<Mutex<Self>>, oepi: Option<EPlayerIndex>, ogamephaseaction: Option<VGamePhaseAction>) {
         println!("send_msg({:?}, {:?})", oepi, ogamephaseaction);
         if let Some(mut gamephase) = self.ogamephase.take() /*TODO take necessary here?*/ {
             if let Some(epi) = oepi {
@@ -280,19 +283,35 @@ impl SPeers {
                 };
             }
             if let Some(whichplayercandosomething) = verify!(gamephase.which_player_can_do_something()) {
+                fn ask_with_timeout(
+                    epi: EPlayerIndex,
+                    itgamephaseaction: impl Iterator<Item=VGamePhaseAction>,
+                    peers: Arc<Mutex<SPeers>>,
+                    gamephaseaction_timeout: VGamePhaseAction,
+                ) -> VMessage {
+                    task::spawn(STimerFuture::new(
+                        /*n_secs*/2,
+                        peers,
+                        epi,
+                        gamephaseaction_timeout,
+                    ));
+                    VMessage::Ask(itgamephaseaction.collect())
+                }
                 use VGamePhaseGeneric::*;
                 match whichplayercandosomething {
                     DealCards((dealcards, epi_doubling)) => {
                         self.for_each(|oepi| {
                             if Some(epi_doubling)==oepi {(
                                 dealcards.first_hand_for(epi_doubling).into(),
-                                VMessage::Ask(
+                                ask_with_timeout(
+                                    epi_doubling,
                                     [true, false]
                                         .iter()
                                         .map(|b_doubling| 
                                             VGamePhaseAction::DealCards(*b_doubling)
-                                        )
-                                        .collect()
+                                        ),
+                                    self_mutex.clone(),
+                                    VGamePhaseAction::DealCards(/*b_doubling*/false),
                                 ),
                             )} else {(
                                 vec![],
@@ -302,19 +321,26 @@ impl SPeers {
                     },
                     GamePreparations((gamepreparations, epi_announce_game)) => {
                         self.for_each(|oepi| {
-                            if Some(epi_announce_game)==oepi {(
-                                gamepreparations.fullhand(epi_announce_game).get().cards().to_vec(),
-                                VMessage::Ask(
-                                    allowed_rules(
-                                        &gamepreparations.ruleset.avecrulegroup[epi_announce_game],
-                                        gamepreparations.fullhand(epi_announce_game),
+                            if Some(epi_announce_game)==oepi {
+                                let vecgamephaseaction_rules : Vec<_> = allowed_rules(
+                                    &gamepreparations.ruleset.avecrulegroup[epi_announce_game],
+                                    gamepreparations.fullhand(epi_announce_game),
+                                )
+                                    .map(|orules|
+                                        VGamePhaseAction::GamePreparations(orules.map(TActivelyPlayableRules::to_string))
                                     )
-                                        .map(|orules|
-                                            VGamePhaseAction::GamePreparations(orules.map(TActivelyPlayableRules::to_string))
-                                        )
-                                        .collect()
-                                ),
-                            )} else {(
+                                    .collect(); // TODO collect needed?
+                                let gamephaseaction_rules_default = debug_verify!(vecgamephaseaction_rules.get(0)).unwrap().clone();
+                                (
+                                    gamepreparations.fullhand(epi_announce_game).get().cards().to_vec(),
+                                    ask_with_timeout(
+                                        epi_announce_game,
+                                        vecgamephaseaction_rules.into_iter(),
+                                        self_mutex.clone(),
+                                        gamephaseaction_rules_default,
+                                    ),
+                                )
+                            } else {(
                                 vec![],
                                 VMessage::Info(format!("Asking {:?} for game", epi_announce_game)),
                             )}
@@ -322,19 +348,26 @@ impl SPeers {
                     },
                     DetermineRules((determinerules, (epi_determine, vecrulegroup))) => {
                         self.for_each(|oepi| {
-                            if Some(epi_determine)==oepi {(
-                                determinerules.fullhand(epi_determine).get().cards().to_vec(),
-                                VMessage::Ask(
-                                    allowed_rules(
-                                        &vecrulegroup,
-                                        determinerules.fullhand(epi_determine),
+                            if Some(epi_determine)==oepi {
+                                let vecgamephaseaction_rules : Vec<_> = allowed_rules(
+                                    &vecrulegroup,
+                                    determinerules.fullhand(epi_determine),
+                                )
+                                    .map(|orules|
+                                        VGamePhaseAction::DetermineRules(orules.map(TActivelyPlayableRules::to_string))
                                     )
-                                        .map(|orules|
-                                            VGamePhaseAction::DetermineRules(orules.map(TActivelyPlayableRules::to_string))
-                                        )
-                                        .collect()
-                                ),
-                            )} else {(
+                                    .collect(); // TODO collect needed?
+                                let gamephaseaction_rules_default = debug_verify!(vecgamephaseaction_rules.get(0)).unwrap().clone();
+                                (
+                                    determinerules.fullhand(epi_determine).get().cards().to_vec(),
+                                    ask_with_timeout(
+                                        epi_determine,
+                                        vecgamephaseaction_rules.into_iter(),
+                                        self_mutex.clone(),
+                                        gamephaseaction_rules_default,
+                                    ),
+                                )
+                            } else {(
                                 vec![],
                                 VMessage::Info(format!("Re-Asking {:?} for game", epi_determine)),
                             )}
@@ -353,13 +386,31 @@ impl SPeers {
                                 if vecepi_stoss.contains(&epi) {
                                     vecmessage.push(VGamePhaseAction::Game(VGameAction::Stoss));
                                 }
-                                if veccard.is_empty() && vecmessage.is_empty() {(
-                                    veccard, // empty
-                                    VMessage::Info(format!("Asking {:?} for card", epi_card))
-                                )} else {(
-                                    veccard,
-                                    VMessage::Ask(vecmessage)
-                                )}
+                                if epi_card==epi {
+                                    assert!(!veccard.is_empty());
+                                    (
+                                        veccard.clone(),
+                                        ask_with_timeout(
+                                            epi_card,
+                                            vecmessage.into_iter(),
+                                            self_mutex.clone(),
+                                            VGamePhaseAction::Game(VGameAction::Zugeben(
+                                                *debug_verify!(game.rules.all_allowed_cards(
+                                                    &game.stichseq,
+                                                    &game.ahand[epi_card],
+                                                ).choose(&mut rand::thread_rng())).unwrap()
+                                            )),
+                                        ),
+                                    )
+                                } else {
+                                    if veccard.is_empty() && vecmessage.is_empty() {(
+                                        veccard, // empty
+                                        VMessage::Info(format!("Asking {:?} for card", epi_card))
+                                    )} else {(
+                                        veccard,
+                                        VMessage::Ask(vecmessage)
+                                    )}
+                                }
                             } else {(
                                 vec![],
                                 VMessage::Info(format!("Asking {:?} for card", epi_card))
@@ -369,11 +420,19 @@ impl SPeers {
                     GameResult((_gameresult, mapepib_confirmed)) => {
                         self.for_each(|oepi| {(
                             vec![],
-                            if oepi.map_or(false, |epi| !mapepib_confirmed[epi]) {
-                                VMessage::Ask(vec![VGamePhaseAction::GameResult(())])
-                            } else {
-                                VMessage::Info("Game finished".into())
-                            },
+                            match oepi {
+                                Some(epi) if !mapepib_confirmed[epi] => {
+                                    ask_with_timeout(
+                                        epi,
+                                        std::iter::once(VGamePhaseAction::GameResult(())),
+                                        self_mutex.clone(),
+                                        VGamePhaseAction::GameResult(()),
+                                    )
+                                },
+                                _ => {
+                                    VMessage::Info("Game finished".into())
+                                },
+                            }
                         )});
                     },
                 }
@@ -392,13 +451,61 @@ enum VMessage {
     Ask(Vec<VGamePhaseAction>),
 }
 
+// timer adapted from https://rust-lang.github.io/async-book/02_execution/03_wakeups.html
+struct STimerFuture {
+    state: Arc<Mutex<STimerFutureState>>,
+    peers: Arc<Mutex<SPeers>>,
+    epi: EPlayerIndex,
+    gamephaseaction: VGamePhaseAction,
+}
+
+struct STimerFutureState {
+    b_completed: bool,
+    owaker: Option<Waker>,
+}
+
+impl Future for STimerFuture {
+    type Output = ();
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut state = self.state.lock().unwrap();
+        if state.b_completed {
+            let peers_mutex = self.peers.clone();
+            self.peers.lock().unwrap().send_msg(peers_mutex, Some(self.epi), Some(self.gamephaseaction.clone()));
+            Poll::Ready(())
+        } else {
+            state.owaker = Some(cx.waker().clone());
+            Poll::Pending
+        }
+    }
+}
+
+impl STimerFuture {
+    fn new(n_secs: u64, peers: Arc<Mutex<SPeers>>, epi: EPlayerIndex, gamephaseaction: VGamePhaseAction) -> Self {
+        let state = Arc::new(Mutex::new(STimerFutureState {
+            b_completed: false,
+            owaker: None,
+        }));
+        let thread_shared_state = state.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::new(n_secs, /*nanos*/0));
+            let mut state = thread_shared_state.lock().unwrap();
+            state.b_completed = true;
+            if let Some(waker) = state.owaker.take() {
+                waker.wake()
+            }
+        });
+        Self {state, peers, epi, gamephaseaction}
+    }
+}
+
 async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sockaddr: SocketAddr) {
     println!("Incoming TCP connection from: {}", sockaddr);
     let wsstream = debug_verify!(async_tungstenite::accept_async(tcpstream).await).unwrap();
     println!("WebSocket connection established: {}", sockaddr);
     // Insert the write part of this peer to the peer map.
     let (txmsg, rxmsg) = unbounded();
-    debug_verify!(peers.lock()).unwrap().insert(SPeer{sockaddr, txmsg, n_money: 0});
+    let peers_mutex = peers.clone();
+    debug_verify!(peers.lock()).unwrap().insert(peers_mutex.clone(), SPeer{sockaddr, txmsg, n_money: 0});
     let (sink_ws_out, stream_ws_in) = wsstream.split();
     let broadcast_incoming = stream_ws_in
         .try_filter(|msg| {
@@ -418,7 +525,7 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                 str_msg,
             );
             match serde_json::from_str(str_msg) {
-                Ok(gamephaseaction) => peers.send_msg(oepi, Some(gamephaseaction)),
+                Ok(gamephaseaction) => peers.send_msg(peers_mutex.clone(), oepi, Some(gamephaseaction)),
                 Err(e) => println!("Error: {}", e),
             }
             future::ok(())
