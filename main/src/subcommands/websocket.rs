@@ -133,14 +133,14 @@ impl SPeers {
             .iter_mut()
             .find(|opeer| opeer.opeer.is_none())
         {
-            Some(opeer) => {
+            Some(opeer) if self.1.ogamephase.is_none() => {
                 assert!(opeer.opeer.is_none());
                 *opeer = SActivePeer{
                     opeer: Some(peer),
                     otimeoutcmd: None,
                 }
             },
-            None => {
+            _ => {
                 self.0.vecpeer.push(peer);
             }
         }
