@@ -257,6 +257,32 @@ impl SPeers {
             }
             while gamephase.which_player_can_do_something().is_none() {
                 use VGamePhaseGeneric::*;
+                fn next_game(peers: &mut SPeers) -> VGamePhase {
+                    /*           E2
+                     * E1                      E3
+                     *    E0 SN SN-1 ... S1 S0
+                     *
+                     * E0 E1 E2 E3 [S0 S1 S2 ... SN]
+                     * E1 E2 E3 S0 [S1 S2 ... SN E0]
+                     * E2 E3 S0 S1 [S2 ... SN E0 E1]
+                     */
+                    // Players: E0 E1 E2 E3 [S0 S1 S2 ... SN] (S0 is longest waiting inactive player)
+                    peers.mapepiopeer.as_raw_mut().rotate_left(1);
+                    // Players: E1 E2 E3 E0 [S0 S1 S2 ... SN]
+                    if let Some(peer_epi3) = peers.mapepiopeer[EPlayerIndex::EPI3].take() {
+                        peers.vecpeer.push(peer_epi3);
+                    }
+                    // Players: E1 E2 E3 -- [S0 S1 S2 ... SN E0] (E1, E2, E3 may be None)
+                    // Fill up players one after another
+                    assert!(peers.mapepiopeer[EPlayerIndex::EPI3].is_none());
+                    for epi in EPlayerIndex::values() {
+                        if peers.mapepiopeer[epi].is_none() && !peers.vecpeer.is_empty() {
+                            peers.mapepiopeer[epi] = Some(peers.vecpeer.remove(0));
+                        }
+                    }
+                    // Players: E1 E2 E3 S0 [S1 S2 ... SN E0] (E1, E2, E3 may be None)
+                    VGamePhase::DealCards(SDealCards::new(static_ruleset(), peers.n_stock))
+                };
                 gamephase = match gamephase {
                     DealCards(dealcards) => match dealcards.finish() {
                         Ok(gamepreparations) => GamePreparations(gamepreparations),
@@ -272,7 +298,7 @@ impl SPeers {
                                     peer.n_money += n_payout;
                                 }
                             });
-                            DealCards(SDealCards::new(static_ruleset(), self.n_stock))
+                            next_game(self)
                         },
                         Err(gamepreparations) => GamePreparations(gamepreparations),
                     }
@@ -298,7 +324,7 @@ impl SPeers {
                             );
                             self.n_stock += n_pay_into_stock;
                             assert!(0 <= self.n_stock);
-                            DealCards(SDealCards::new(static_ruleset(), self.n_stock))
+                            next_game(self)
                         },
                     },
                 };
