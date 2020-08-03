@@ -191,8 +191,8 @@ impl SPeers0 {
         };
         for epi in EPlayerIndex::values() {
             let ref mut activepeer = self.mapepiopeer[epi];
+            let (veccard, msg) = f_active(epi, &mut activepeer.otimeoutcmd);
             if let Some(ref mut peer) = activepeer.opeer.as_mut() {
-                let (veccard, msg) = f_active(epi, &mut activepeer.otimeoutcmd);
                 communicate(Some(epi), veccard, msg, peer);
             }
         }
