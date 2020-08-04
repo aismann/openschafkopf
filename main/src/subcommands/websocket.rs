@@ -419,21 +419,20 @@ impl SPeers {
                             self.0.for_each(
                                 |epi, otimeoutcmd| {
                                     if epi_announce_game==epi {
-                                        let vecgamephaseaction_rules : Vec<_> = allowed_rules(
+                                        let itgamephaseaction_rules = allowed_rules(
                                             &gamepreparations.ruleset.avecrulegroup[epi_announce_game],
                                             gamepreparations.fullhand(epi_announce_game),
                                         )
                                             .map(|orules|
                                                 VGamePhaseAction::GamePreparations(orules.map(TActivelyPlayableRules::to_string))
-                                            )
-                                            .collect(); // TODO collect needed?
-                                        let gamephaseaction_rules_default = debug_verify!(vecgamephaseaction_rules.get(0)).unwrap().clone();
+                                            );
+                                        let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().clone();
                                         (
                                             gamepreparations.fullhand(epi_announce_game).get().cards().to_vec(),
                                             ask_with_timeout(
                                                 otimeoutcmd,
                                                 epi_announce_game,
-                                                vecgamephaseaction_rules.into_iter(),
+                                                itgamephaseaction_rules,
                                                 self_mutex.clone(),
                                                 gamephaseaction_rules_default,
                                             ),
@@ -453,21 +452,20 @@ impl SPeers {
                             self.0.for_each(
                                 |epi, otimeoutcmd| {
                                     if epi_determine==epi {
-                                        let vecgamephaseaction_rules : Vec<_> = allowed_rules(
+                                        let itgamephaseaction_rules = allowed_rules(
                                             &vecrulegroup,
                                             determinerules.fullhand(epi_determine),
                                         )
                                             .map(|orules|
                                                 VGamePhaseAction::DetermineRules(orules.map(TActivelyPlayableRules::to_string))
-                                            )
-                                            .collect(); // TODO collect needed?
-                                        let gamephaseaction_rules_default = debug_verify!(vecgamephaseaction_rules.get(0)).unwrap().clone();
+                                            );
+                                        let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().clone();
                                         (
                                             determinerules.fullhand(epi_determine).get().cards().to_vec(),
                                             ask_with_timeout(
                                                 otimeoutcmd,
                                                 epi_determine,
-                                                vecgamephaseaction_rules.into_iter(),
+                                                itgamephaseaction_rules,
                                                 self_mutex.clone(),
                                                 gamephaseaction_rules_default,
                                             ),

@@ -186,3 +186,6 @@ pub trait TExplicitClone: Clone {
     }
 }
 impl<T: Clone> TExplicitClone for T {}
+
+pub trait TClonableIterator<T> : Clone + Iterator<Item=T> {}
+impl<T, I: Iterator<Item=T>+Clone> TClonableIterator<T> for I {}
