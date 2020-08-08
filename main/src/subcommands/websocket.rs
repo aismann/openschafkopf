@@ -175,8 +175,9 @@ impl SPeers {
 impl SPeers0 {
     fn for_each(
         &mut self,
-        mut f_active: impl FnMut(EPlayerIndex, &mut Option<STimeoutCmd>)->(Vec<SCard>, VMessage),
-        mut f_inactive: impl FnMut(&mut SPeer)->(Vec<SCard>, VMessage),
+        f_cards: impl Fn(EPlayerIndex) -> Vec<SCard>,
+        mut f_active: impl FnMut(EPlayerIndex, &mut Option<STimeoutCmd>)->VMessage,
+        mut f_inactive: impl FnMut(&mut SPeer)->VMessage,
     ) {
         let communicate = |oepi, veccard: Vec<SCard>, msg, peer: &mut SPeer| {
             debug_verify!(peer.txmsg.unbounded_send(
@@ -191,14 +192,14 @@ impl SPeers0 {
         };
         for epi in EPlayerIndex::values() {
             let ref mut activepeer = self.mapepiopeer[epi];
-            let (veccard, msg) = f_active(epi, &mut activepeer.otimeoutcmd);
+            let msg = f_active(epi, &mut activepeer.otimeoutcmd);
             if let Some(ref mut peer) = activepeer.opeer.as_mut() {
-                communicate(Some(epi), veccard, msg, peer);
+                communicate(Some(epi), f_cards(epi), msg, peer);
             }
         }
         for peer in self.vecpeer.iter_mut() {
-            let (veccard, msg) = f_inactive(peer);
-            communicate(None, veccard, msg, peer);
+            let msg = f_inactive(peer);
+            communicate(None, vec![], msg, peer);
         }
     }
 }
@@ -390,9 +391,9 @@ impl SPeers {
                     match whichplayercandosomething {
                         DealCards((dealcards, epi_doubling)) => {
                             self.0.for_each(
+                                |epi| dealcards.first_hand_for(epi).into(),
                                 |epi, otimeoutcmd| {
-                                    if epi_doubling==epi {(
-                                        dealcards.first_hand_for(epi_doubling).into(),
+                                    if epi_doubling==epi {
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi_doubling,
@@ -403,20 +404,17 @@ impl SPeers {
                                                 ),
                                             self_mutex.clone(),
                                             VGamePhaseAction::DealCards(/*b_doubling*/false),
-                                        ),
-                                    )} else {(
-                                        vec![],
-                                        VMessage::Info(format!("Asking {:?} for doubling", epi_doubling)),
-                                    )}
+                                        )
+                                    } else {
+                                        VMessage::Info(format!("Asking {:?} for doubling", epi_doubling))
+                                    }
                                 },
-                                |_peer| (
-                                    vec![],
-                                    VMessage::Info(format!("Asking {:?} for doubling", epi_doubling)),
-                                ),
+                                |_peer| VMessage::Info(format!("Asking {:?} for doubling", epi_doubling)),
                             );
                         },
                         GamePreparations((gamepreparations, epi_announce_game)) => {
                             self.0.for_each(
+                                |epi| gamepreparations.fullhand(epi).get().cards().to_vec(),
                                 |epi, otimeoutcmd| {
                                     if epi_announce_game==epi {
                                         let itgamephaseaction_rules = allowed_rules(
@@ -427,29 +425,23 @@ impl SPeers {
                                                 VGamePhaseAction::GamePreparations(orules.map(TActivelyPlayableRules::to_string))
                                             );
                                         let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().clone();
-                                        (
-                                            gamepreparations.fullhand(epi_announce_game).get().cards().to_vec(),
-                                            ask_with_timeout(
-                                                otimeoutcmd,
-                                                epi_announce_game,
-                                                itgamephaseaction_rules,
-                                                self_mutex.clone(),
-                                                gamephaseaction_rules_default,
-                                            ),
+                                        ask_with_timeout(
+                                            otimeoutcmd,
+                                            epi_announce_game,
+                                            itgamephaseaction_rules,
+                                            self_mutex.clone(),
+                                            gamephaseaction_rules_default,
                                         )
-                                    } else {(
-                                        vec![],
-                                        VMessage::Info(format!("Asking {:?} for game", epi_announce_game)),
-                                    )}
+                                    } else {
+                                        VMessage::Info(format!("Asking {:?} for game", epi_announce_game))
+                                    }
                                 },
-                                |_peer| (
-                                    vec![],
-                                    VMessage::Info(format!("Asking {:?} for game", epi_announce_game)),
-                                ),
+                                |_peer| VMessage::Info(format!("Asking {:?} for game", epi_announce_game)),
                             );
                         },
                         DetermineRules((determinerules, (epi_determine, vecrulegroup))) => {
                             self.0.for_each(
+                                |epi| determinerules.fullhand(epi).get().cards().to_vec(),
                                 |epi, otimeoutcmd| {
                                     if epi_determine==epi {
                                         let itgamephaseaction_rules = allowed_rules(
@@ -460,77 +452,54 @@ impl SPeers {
                                                 VGamePhaseAction::DetermineRules(orules.map(TActivelyPlayableRules::to_string))
                                             );
                                         let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().clone();
-                                        (
-                                            determinerules.fullhand(epi_determine).get().cards().to_vec(),
-                                            ask_with_timeout(
-                                                otimeoutcmd,
-                                                epi_determine,
-                                                itgamephaseaction_rules,
-                                                self_mutex.clone(),
-                                                gamephaseaction_rules_default,
-                                            ),
+                                        ask_with_timeout(
+                                            otimeoutcmd,
+                                            epi_determine,
+                                            itgamephaseaction_rules,
+                                            self_mutex.clone(),
+                                            gamephaseaction_rules_default,
                                         )
-                                    } else {(
-                                        vec![],
-                                        VMessage::Info(format!("Re-Asking {:?} for game", epi_determine)),
-                                    )}
+                                    } else {
+                                        VMessage::Info(format!("Re-Asking {:?} for game", epi_determine))
+                                    }
                                 },
-                                |_peer| (
-                                    vec![],
-                                    VMessage::Info(format!("Re-Asking {:?} for game", epi_determine)),
-                                )
+                                |_peer| VMessage::Info(format!("Re-Asking {:?} for game", epi_determine)),
                             );
                         },
                         Game((game, (epi_card, vecepi_stoss))) => {
                             self.0.for_each(
+                                |epi| game.ahand[epi].cards().to_vec(),
                                 |epi, otimeoutcmd| {
-                                    let mut veccard = Vec::new();
-                                    if epi_card==epi {
-                                        for card in game.ahand[epi_card].cards().iter() {
-                                            veccard.push(*card);
-                                        }
-                                    }
                                     let mut vecmessage = Vec::new();
                                     if vecepi_stoss.contains(&epi) {
                                         vecmessage.push(VGamePhaseAction::Game(VGameAction::Stoss));
                                     }
                                     if epi_card==epi {
-                                        assert!(!veccard.is_empty());
-                                        (
-                                            veccard.clone(),
-                                            ask_with_timeout(
-                                                otimeoutcmd,
-                                                epi_card,
-                                                vecmessage.into_iter(),
-                                                self_mutex.clone(),
-                                                VGamePhaseAction::Game(VGameAction::Zugeben(
-                                                    *debug_verify!(game.rules.all_allowed_cards(
-                                                        &game.stichseq,
-                                                        &game.ahand[epi_card],
-                                                    ).choose(&mut rand::thread_rng())).unwrap()
-                                                )),
-                                            ),
+                                        ask_with_timeout(
+                                            otimeoutcmd,
+                                            epi_card,
+                                            vecmessage.into_iter(),
+                                            self_mutex.clone(),
+                                            VGamePhaseAction::Game(VGameAction::Zugeben(
+                                                *debug_verify!(game.rules.all_allowed_cards(
+                                                    &game.stichseq,
+                                                    &game.ahand[epi_card],
+                                                ).choose(&mut rand::thread_rng())).unwrap()
+                                            )),
                                         )
+                                    } else if vecmessage.is_empty() {
+                                        VMessage::Info(format!("Asking {:?} for card", epi_card))
                                     } else {
-                                        if veccard.is_empty() && vecmessage.is_empty() {(
-                                            veccard, // empty
-                                            VMessage::Info(format!("Asking {:?} for card", epi_card))
-                                        )} else {(
-                                            veccard,
-                                            VMessage::Ask(vecmessage)
-                                        )}
+                                        VMessage::Ask(vecmessage)
                                     }
                                 },
-                                |_peer| (
-                                    vec![],
-                                    VMessage::Info(format!("Asking {:?} for card", epi_card))
-                                )
+                                |_peer| VMessage::Info(format!("Asking {:?} for card", epi_card)),
                             );
                         },
                         GameResult((_gameresult, mapepib_confirmed)) => {
                             self.0.for_each(
-                                |epi, otimeoutcmd| {(
-                                    vec![],
+                                |_epi| vec![],
+                                |epi, otimeoutcmd| {
                                     if !mapepib_confirmed[epi] {
                                         ask_with_timeout(
                                             otimeoutcmd,
@@ -541,12 +510,9 @@ impl SPeers {
                                         )
                                     } else {
                                         VMessage::Info("Game finished".into())
-                                    },
-                                )},
-                                |_peer| (
-                                    vec![],
-                                    VMessage::Info("Game finished".into())
-                                ),
+                                    }
+                                },
+                                |_peer| VMessage::Info("Game finished".into()),
                             );
                         },
                     }
@@ -554,8 +520,9 @@ impl SPeers {
             }
         } else {
             self.0.for_each(
-                |_oepi, _otimeoutcmd| (vec![], VMessage::Info("Waiting for more players.".into())),
-                |_peer| (vec![], VMessage::Info("Waiting for more players.".into())),
+                |_epi| vec![],
+                |_oepi, _otimeoutcmd| VMessage::Info("Waiting for more players.".into()),
+                |_peer| VMessage::Info("Waiting for more players.".into()),
             );
         }
     }
