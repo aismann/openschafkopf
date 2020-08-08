@@ -1,0 +1,92 @@
+#table {
+  /*! height: 99%; */
+  /*! width: 99%; */
+  background-color: #eeffee;
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 10px;
+  right: 0;
+}
+#card_stich_0 {
+  width: 50%;
+  height: 50%;
+  background-color: green;
+  position: absolute;
+  left: 25%;
+  top: 50%;
+}
+#card_stich_1 {
+  width: 50%;
+  height: 50%;
+  background-color: yellow;
+  position: absolute;
+  left: 0%;
+  top: 25%;
+}
+#card_stich_2 {
+  width: 50%;
+  height: 50%;
+  background-color: #f91212;
+  position: absolute;
+  left: 25%;
+  top: 0%;
+}
+#card_stich_3 {
+  width: 50%;
+  height: 50%;
+  background-color: #1114b96b;
+  position: absolute;
+  left: 50%;
+  top: 25%;
+}
+.card_hand {
+  width: 40px;
+  background-color: #ff000017;
+  display: inline-block;
+  margin: 2px;
+  position: unset;
+  height: 100%;
+  background-image: url("file:///home/philipp/Desktop/schafkopf/schafkopf/images/UHerz.jpg");
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  max-width: 10%;
+  top: 0;
+}
+#hand {
+  position: absolute;
+  bottom: 0;
+  width: 100%;
+  text-align: center;
+  max-height: 20%;
+  background-color: #0000ff45;
+  height: 80px;
+}
+
+
+li {
+  marker: none;
+  display: block;
+}
+
+
+#stich {
+  background-color: red;
+}
+.stich {
+  background: #00ffcf;
+  position: absolute;
+  left: 30%;
+  top: 30%;
+  width: 40%;
+  height: 40%;
+}
+.stich_old {
+  background: #00ffcf;
+  position: absolute;
+  left: 5%;
+  top: 40%;
+  width: 20%;
+  height: 20%;
+}
