@@ -63,9 +63,6 @@ li {
 
 
 #stich {
-  background-color: red;
-}
-.stich {
   background: #00ffcf;
   position: absolute;
   left: 30%;
@@ -73,7 +70,7 @@ li {
   width: 40%;
   height: 40%;
 }
-.stich_old {
+#stich_old {
   background: #00ffcf;
   position: absolute;
   left: 5%;

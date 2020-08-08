@@ -26,6 +26,9 @@ ws.onmessage = function(msg) {
     // any_parsed[0]: EPlayerIndex
     // any_parsed[1]: vectplstrstr_caption_message_zugeben
     // any_parsed[2]: VMessage
+    // any_parsed[3]: stich (relative to EPlayerIndex, so that client does not have to shift)
+    // any_parsed[4]: previous stich (relative to EPlayerIndex, so that client does not have to shift)
+    // any_parsed[5]: (optional) winner index of previous stich // TODO should be part of previous stich
     if (Array.isArray(any_parsed[1])) {
         let div_hand = document.createElement("DIV");
         div_hand.id = "hand";
@@ -65,6 +68,66 @@ ws.onmessage = function(msg) {
             div_askpanel.parentNode.replaceChild(div_askpanel_new, div_askpanel);
         } else {
             div_askpanel.hidden = true;
+        }
+    }
+    {
+        console.log(any_parsed[3]);
+        let div_stich_new = document.createElement("DIV");
+        div_stich_new.id = "stich";
+        let i_epi = 0;
+        for (i_epi = 0; i_epi<4; i_epi++) {
+            let div_card = document.createElement("DIV");
+            div_card.className = "card_stich card_stich_" + i_epi + " card";
+            if (any_parsed[3][i_epi]) {
+                div_card.className += " card_" + any_parsed[3][i_epi];
+            }
+            div_stich_new.appendChild(div_card);
+        }
+        let div_stich_old = document.getElementById("stich");
+        div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
+    }
+    {
+        console.log(any_parsed[4]);
+        let div_stich_new = document.createElement("DIV");
+        div_stich_new.id = "stich_old";
+        let i_epi = 0;
+        for (i_epi = 0; i_epi<4; i_epi++) {
+            let div_card = document.createElement("DIV");
+            div_card.className = "card_stich card_stich_" + i_epi + " card";
+            if (any_parsed[4][i_epi]) {
+                div_card.className += " card_" + any_parsed[4][i_epi];
+            }
+            div_stich_new.appendChild(div_card);
+        }
+        let div_stich_old = document.getElementById("stich_old");
+        div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
+    }
+    {
+        console.log(any_parsed[5]);
+        if (any_parsed[5]) {
+            let div_stich_old = document.getElementById("stich_old");
+            switch(any_parsed[5]){
+                case "EPI0": {
+                    div_stich_old.style.left = "40%";
+                    div_stich_old.style.top = "70%";
+                    break;
+                }
+                case "EPI1": {
+                    div_stich_old.style.left = "5%";
+                    div_stich_old.style.top = "40%";
+                    break;
+                }
+                case "EPI2": {
+                    div_stich_old.style.left = "40%";
+                    div_stich_old.style.top = "5%";
+                    break;
+                }
+                case "EPI3": {
+                    div_stich_old.style.left = "75%";
+                    div_stich_old.style.top = "40%";
+                    break;
+                }
+            }
         }
     }
 };

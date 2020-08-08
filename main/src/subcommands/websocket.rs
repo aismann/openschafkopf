@@ -175,18 +175,34 @@ impl SPeers {
 impl SPeers0 {
     fn for_each(
         &mut self,
+        ostich_current: Option<&SStich>,
+        ostich_prev: Option<&SStich>,
         f_cards: impl Fn(EPlayerIndex) -> Vec<SCard>,
         mut f_active: impl FnMut(EPlayerIndex, &mut Option<STimeoutCmd>)->VMessage,
         mut f_inactive: impl FnMut(&mut SPeer)->VMessage,
     ) {
-        let communicate = |oepi, veccard: Vec<SCard>, msg, peer: &mut SPeer| {
+        let communicate = |oepi: Option<EPlayerIndex>, veccard: Vec<SCard>, msg, peer: &mut SPeer| {
+            let i_epi_relative = oepi.unwrap_or(EPlayerIndex::EPI0).to_usize();
+            let serialize_stich = |ostich: Option<&SStich>| {
+                if let Some(stich)=ostich {
+                    EPlayerIndex::map_from_fn(|epi| {
+                        stich.get(epi.wrapping_add(i_epi_relative))
+                            .map(SCard::to_string)
+                    }).into_raw()
+                } else {
+                    [None, None, None, None]
+                }
+            };
             debug_verify!(peer.txmsg.unbounded_send(
                 debug_verify!(serde_json::to_string(&(
                     oepi,
                     veccard.into_iter()
                         .map(|card| (card.to_string(), VGamePhaseAction::Game(VGameAction::Zugeben(card))))
                         .collect::<Vec<_>>(),
-                    msg
+                    msg,
+                    serialize_stich(ostich_current),
+                    serialize_stich(ostich_prev),
+                    ostich_current.map(|stich| stich.first_playerindex().wrapping_add(i_epi_relative)), // winner index of ostich_prev // TODO should be part of ostich_prev
                 ))).unwrap().into()
             )).unwrap();
         };
@@ -391,6 +407,8 @@ impl SPeers {
                     match whichplayercandosomething {
                         DealCards((dealcards, epi_doubling)) => {
                             self.0.for_each(
+                                None,
+                                None,
                                 |epi| dealcards.first_hand_for(epi).into(),
                                 |epi, otimeoutcmd| {
                                     if epi_doubling==epi {
@@ -414,6 +432,8 @@ impl SPeers {
                         },
                         GamePreparations((gamepreparations, epi_announce_game)) => {
                             self.0.for_each(
+                                None,
+                                None,
                                 |epi| gamepreparations.fullhand(epi).get().cards().to_vec(),
                                 |epi, otimeoutcmd| {
                                     if epi_announce_game==epi {
@@ -441,6 +461,8 @@ impl SPeers {
                         },
                         DetermineRules((determinerules, (epi_determine, vecrulegroup))) => {
                             self.0.for_each(
+                                None,
+                                None,
                                 |epi| determinerules.fullhand(epi).get().cards().to_vec(),
                                 |epi, otimeoutcmd| {
                                     if epi_determine==epi {
@@ -468,6 +490,8 @@ impl SPeers {
                         },
                         Game((game, (epi_card, vecepi_stoss))) => {
                             self.0.for_each(
+                                Some(game.stichseq.current_stich()),
+                                game.stichseq.completed_stichs().last(),
                                 |epi| game.ahand[epi].cards().to_vec(),
                                 |epi, otimeoutcmd| {
                                     let mut vecmessage = Vec::new();
@@ -498,6 +522,8 @@ impl SPeers {
                         },
                         GameResult((_gameresult, mapepib_confirmed)) => {
                             self.0.for_each(
+                                None, // TODO last stich should stay
+                                None, // TODO second-to-last stich should stay
                                 |_epi| vec![],
                                 |epi, otimeoutcmd| {
                                     if !mapepib_confirmed[epi] {
@@ -520,6 +546,8 @@ impl SPeers {
             }
         } else {
             self.0.for_each(
+                None,
+                None,
                 |_epi| vec![],
                 |_oepi, _otimeoutcmd| VMessage::Info("Waiting for more players.".into()),
                 |_peer| VMessage::Info("Waiting for more players.".into()),
