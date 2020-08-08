@@ -8,38 +8,33 @@
   bottom: 10px;
   right: 0;
 }
-#card_stich_0 {
+.card_stich {
   width: 50%;
   height: 50%;
-  background-color: green;
   position: absolute;
+}
+.card_stich_0 {
   left: 25%;
   top: 50%;
 }
-#card_stich_1 {
-  width: 50%;
-  height: 50%;
-  background-color: yellow;
-  position: absolute;
+.card_stich_1 {
   left: 0%;
   top: 25%;
 }
-#card_stich_2 {
-  width: 50%;
-  height: 50%;
-  background-color: #f91212;
-  position: absolute;
+.card_stich_2 {
   left: 25%;
   top: 0%;
 }
-#card_stich_3 {
-  width: 50%;
-  height: 50%;
-  background-color: #1114b96b;
-  position: absolute;
+.card_stich_3 {
   left: 50%;
   top: 25%;
 }
+.card {
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+
 .card_hand {
   width: 40px;
   background-color: #ff000017;
@@ -47,10 +42,6 @@
   margin: 2px;
   position: unset;
   height: 100%;
-  background-image: url("file:///home/philipp/Desktop/schafkopf/schafkopf/images/UHerz.jpg");
-  background-size: contain;
-  background-repeat: no-repeat;
-  background-position: center;
   max-width: 10%;
   top: 0;
 }
@@ -90,3 +81,101 @@ li {
   width: 20%;
   height: 20%;
 }
+
+.card_E7 {
+  background-image: url("img/E7.jpg");
+}
+.card_E8 {
+    background-image: url("img/E8.jpg");
+}
+.card_E9 {
+    background-image: url("img/E9.jpg");
+}
+.card_EZ {
+    background-image: url("img/EZ.jpg");
+}
+.card_EU {
+    background-image: url("img/EU.jpg");
+}
+.card_EO {
+    background-image: url("img/EO.jpg");
+}
+.card_EK {
+    background-image: url("img/EK.jpg");
+}
+.card_EA {
+    background-image: url("img/EA.jpg");
+}
+.card_G7 {
+    background-image: url("img/G7.jpg");
+}
+.card_G8 {
+    background-image: url("img/G8.jpg");
+}
+.card_G9 {
+    background-image: url("img/G9.jpg");
+}
+.card_GZ {
+    background-image: url("img/GZ.jpg");
+}
+.card_GU {
+    background-image: url("img/GU.jpg");
+}
+.card_GO {
+    background-image: url("img/GO.jpg");
+}
+.card_GK {
+    background-image: url("img/GK.jpg");
+}
+.card_GA {
+    background-image: url("img/GA.jpg");
+}
+.card_H7 {
+    background-image: url("img/H7.jpg");
+}
+.card_H8 {
+    background-image: url("img/H8.jpg");
+}
+.card_H9 {
+    background-image: url("img/H9.jpg");
+}
+.card_HZ {
+    background-image: url("img/HZ.jpg");
+}
+.card_HU {
+    background-image: url("img/HU.jpg");
+}
+.card_HO {
+    background-image: url("img/HO.jpg");
+}
+.card_HK {
+    background-image: url("img/HK.jpg");
+}
+.card_HA {
+    background-image: url("img/HA.jpg");
+}
+.card_S7 {
+    background-image: url("img/S7.jpg");
+}
+.card_S8 {
+    background-image: url("img/S8.jpg");
+}
+.card_S9 {
+    background-image: url("img/S9.jpg");
+}
+.card_SZ {
+    background-image: url("img/SZ.jpg");
+}
+.card_SU {
+    background-image: url("img/SU.jpg");
+}
+.card_SO {
+    background-image: url("img/SO.jpg");
+}
+.card_SK {
+    background-image: url("img/SK.jpg");
+}
+.card_SA {
+    background-image: url("img/SA.jpg");
+}
+

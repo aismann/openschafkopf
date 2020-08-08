@@ -27,33 +27,44 @@ ws.onmessage = function(msg) {
     // any_parsed[1]: vectplstrstr_caption_message_zugeben
     // any_parsed[2]: VMessage
     if (Array.isArray(any_parsed[1])) {
-        let paragraph_btns = document.createElement("p");
+        let div_hand = document.createElement("DIV");
+        div_hand.id = "hand";
         for (let x of any_parsed[1]) {
             console.log(x);
-            let btn = document.createElement("BUTTON");
-            btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
-            btn.onclick = function () {
+            let div_card = document.createElement("DIV");
+            div_card.className = "card card_hand card_" + x[0];
+            div_card.onclick = function () {
                 console.log(x[1]);
                 ws.send(JSON.stringify(x[1]));
             };
-            paragraph_btns.appendChild(btn);
-            document.body.appendChild(paragraph_btns);
-            window.scrollTo(0, document.body.scrollHeight);
+            div_hand.appendChild(div_card);
         }
+        let div_hand_old = document.getElementById("hand");
+        console.log(div_hand_old);
+        console.log(div_hand_old.parentNode);
+        div_hand_old.parentNode.replaceChild(div_hand, div_hand_old);
     }
     if ("Ask" in any_parsed[2]) {
+        let div_askpanel = document.getElementById("askpanel");
         let paragraph_btns = document.createElement("p");
-        for (let x of any_parsed[2]["Ask"]) {
-            console.log(x);
-            let btn = document.createElement("BUTTON");
-            btn.appendChild(document.createTextNode(JSON.stringify(x)));
-            btn.onclick = function () {
+        if (any_parsed[2]["Ask"]) { // TODO is this the canonical emptiness check?
+            let div_askpanel_new = document.createElement("DIV");
+            div_askpanel_new.id = "askpanel";
+            for (let x of any_parsed[2]["Ask"]) {
                 console.log(x);
-                ws.send(JSON.stringify(x));
-            };
-            paragraph_btns.appendChild(btn);
-            document.body.appendChild(paragraph_btns);
-            window.scrollTo(0, document.body.scrollHeight);
+                let btn = document.createElement("BUTTON");
+                btn.appendChild(document.createTextNode(JSON.stringify(x)));
+                btn.onclick = function () {
+                    console.log(x);
+                    ws.send(JSON.stringify(x));
+                };
+                paragraph_btns.appendChild(btn);
+                div_askpanel_new.appendChild(paragraph_btns);
+                //window.scrollTo(0, document.body.scrollHeight);
+            }
+            div_askpanel.parentNode.replaceChild(div_askpanel_new, div_askpanel);
+        } else {
+            div_askpanel.hidden = true;
         }
     }
 };
