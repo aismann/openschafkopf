@@ -202,7 +202,7 @@ impl SPeers0 {
                     msg,
                     serialize_stich(ostich_current),
                     serialize_stich(ostich_prev),
-                    ostich_current.map(|stich| stich.first_playerindex().wrapping_add(i_epi_relative)), // winner index of ostich_prev // TODO should be part of ostich_prev
+                    ostich_current.map(|stich| stich.first_playerindex().wrapping_add(EPlayerIndex::SIZE - i_epi_relative)), // winner index of ostich_prev // TODO should be part of ostich_prev
                 ))).unwrap().into()
             )).unwrap();
         };
