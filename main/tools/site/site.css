@@ -61,6 +61,22 @@ li {
   display: block;
 }
 
+#askpanel {
+    position: absolute;
+    left: 10%;
+    top: 10%;
+    right: 10%;
+    bottom: 10%;
+    overflow-x: visible;
+    overflow-y: auto;
+    z-index: 1000;
+}
+
+#askpanel button {
+    padding: 5px;
+    margin: 5px;
+    display: block;
+}
 
 #stich {
   background: #00ffcf;

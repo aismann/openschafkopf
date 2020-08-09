@@ -381,7 +381,7 @@ impl SPeers {
                     fn ask_with_timeout(
                         otimeoutcmd: &mut Option<STimeoutCmd>,
                         epi: EPlayerIndex,
-                        itgamephaseaction: impl Iterator<Item=VGamePhaseAction>,
+                        itgamephaseaction: impl Iterator<Item=(String, VGamePhaseAction)>,
                         peers_mutex: Arc<Mutex<SPeers>>,
                         gamephaseaction_timeout: VGamePhaseAction,
                     ) -> VMessage {
@@ -415,10 +415,10 @@ impl SPeers {
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi_doubling,
-                                            [true, false]
+                                            [(true, "Doppeln"), (false, "Nicht doppeln")]
                                                 .iter()
-                                                .map(|b_doubling| 
-                                                    VGamePhaseAction::DealCards(*b_doubling)
+                                                .map(|(b_doubling, str_doubling)| 
+                                                    (str_doubling.to_string(), VGamePhaseAction::DealCards(*b_doubling))
                                                 ),
                                             self_mutex.clone(),
                                             VGamePhaseAction::DealCards(/*b_doubling*/false),
@@ -442,9 +442,16 @@ impl SPeers {
                                             gamepreparations.fullhand(epi_announce_game),
                                         )
                                             .map(|orules|
-                                                VGamePhaseAction::GamePreparations(orules.map(TActivelyPlayableRules::to_string))
+                                                (
+                                                    if let Some(rules) = orules {
+                                                        rules.to_string()
+                                                    } else {
+                                                        "Weiter".to_string()
+                                                    },
+                                                    VGamePhaseAction::GamePreparations(orules.map(TActivelyPlayableRules::to_string)),
+                                                )
                                             );
-                                        let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().clone();
+                                        let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().1.clone();
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi_announce_game,
@@ -471,9 +478,16 @@ impl SPeers {
                                             determinerules.fullhand(epi_determine),
                                         )
                                             .map(|orules|
-                                                VGamePhaseAction::DetermineRules(orules.map(TActivelyPlayableRules::to_string))
+                                                (
+                                                    if let Some(rules) = orules {
+                                                        rules.to_string()
+                                                    } else {
+                                                        "Weiter".to_string()
+                                                    },
+                                                    VGamePhaseAction::DetermineRules(orules.map(TActivelyPlayableRules::to_string)),
+                                                )
                                             );
-                                        let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().clone();
+                                        let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().1.clone();
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi_determine,
@@ -496,7 +510,7 @@ impl SPeers {
                                 |epi, otimeoutcmd| {
                                     let mut vecmessage = Vec::new();
                                     if vecepi_stoss.contains(&epi) {
-                                        vecmessage.push(VGamePhaseAction::Game(VGameAction::Stoss));
+                                        vecmessage.push(("Stoss".into(), VGamePhaseAction::Game(VGameAction::Stoss)));
                                     }
                                     if epi_card==epi {
                                         ask_with_timeout(
@@ -530,7 +544,7 @@ impl SPeers {
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi,
-                                            std::iter::once(VGamePhaseAction::GameResult(())),
+                                            std::iter::once(("Ok".into(), VGamePhaseAction::GameResult(()))),
                                             self_mutex.clone(),
                                             VGamePhaseAction::GameResult(()),
                                         )
@@ -559,7 +573,7 @@ impl SPeers {
 #[derive(Serialize)]
 enum VMessage {
     Info(String),
-    Ask(Vec<VGamePhaseAction>),
+    Ask(Vec<(String, VGamePhaseAction)>),
 }
 
 // timer adapted from https://rust-lang.github.io/async-book/02_execution/03_wakeups.html

@@ -56,10 +56,10 @@ ws.onmessage = function(msg) {
             for (let x of any_parsed[2]["Ask"]) {
                 console.log(x);
                 let btn = document.createElement("BUTTON");
-                btn.appendChild(document.createTextNode(JSON.stringify(x)));
+                btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
                 btn.onclick = function () {
-                    console.log(x);
-                    ws.send(JSON.stringify(x));
+                    console.log(x[1]);
+                    ws.send(JSON.stringify(x[1]));
                 };
                 paragraph_btns.appendChild(btn);
                 div_askpanel_new.appendChild(paragraph_btns);
