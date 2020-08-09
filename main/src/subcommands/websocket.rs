@@ -177,6 +177,7 @@ impl SPeers0 {
         &mut self,
         ostich_current: Option<&SStich>,
         ostich_prev: Option<&SStich>,
+        orules: Option<&dyn TRules>,
         f_cards: impl Fn(EPlayerIndex) -> Vec<SCard>,
         mut f_active: impl FnMut(EPlayerIndex, &mut Option<STimeoutCmd>)->VMessage,
         mut f_inactive: impl FnMut(&mut SPeer)->VMessage,
@@ -210,7 +211,16 @@ impl SPeers0 {
             let ref mut activepeer = self.mapepiopeer[epi];
             let msg = f_active(epi, &mut activepeer.otimeoutcmd);
             if let Some(ref mut peer) = activepeer.opeer.as_mut() {
-                communicate(Some(epi), f_cards(epi), msg, peer);
+                let mut veccard = f_cards(epi);
+                if let Some(rules) = orules {
+                    rules.sort_cards_first_trumpf_then_farbe(&mut veccard);
+                } else {
+                    rulesramsch::SRulesRamsch::new( // TODO rules dummy is ugly
+                        /*n_price*/0, // irrelevant
+                        rulesramsch::VDurchmarsch::None, // irrelevant
+                    ).sort_cards_first_trumpf_then_farbe(&mut veccard);
+                }
+                communicate(Some(epi), veccard, msg, peer);
             }
         }
         for peer in self.vecpeer.iter_mut() {
@@ -409,6 +419,7 @@ impl SPeers {
                             self.0.for_each(
                                 None,
                                 None,
+                                None,
                                 |epi| dealcards.first_hand_for(epi).into(),
                                 |epi, otimeoutcmd| {
                                     if epi_doubling==epi {
@@ -432,6 +443,7 @@ impl SPeers {
                         },
                         GamePreparations((gamepreparations, epi_announce_game)) => {
                             self.0.for_each(
+                                None,
                                 None,
                                 None,
                                 |epi| gamepreparations.fullhand(epi).get().cards().to_vec(),
@@ -470,6 +482,7 @@ impl SPeers {
                             self.0.for_each(
                                 None,
                                 None,
+                                None,
                                 |epi| determinerules.fullhand(epi).get().cards().to_vec(),
                                 |epi, otimeoutcmd| {
                                     if epi_determine==epi {
@@ -506,6 +519,7 @@ impl SPeers {
                             self.0.for_each(
                                 Some(game.stichseq.current_stich()),
                                 game.stichseq.completed_stichs().last(),
+                                Some(game.rules.as_ref()),
                                 |epi| game.ahand[epi].cards().to_vec(),
                                 |epi, otimeoutcmd| {
                                     let mut vecmessage = Vec::new();
@@ -538,6 +552,7 @@ impl SPeers {
                             self.0.for_each(
                                 None, // TODO last stich should stay
                                 None, // TODO second-to-last stich should stay
+                                None, // TODO rules should be accessible
                                 |_epi| vec![],
                                 |epi, otimeoutcmd| {
                                     if !mapepib_confirmed[epi] {
@@ -560,6 +575,7 @@ impl SPeers {
             }
         } else {
             self.0.for_each(
+                None,
                 None,
                 None,
                 |_epi| vec![],
