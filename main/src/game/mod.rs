@@ -463,6 +463,7 @@ impl TGamePhase for SGame {
                 stoss_and_doublings(&self.vecstoss, &self.doublings),
                 self.n_stock,
             ),
+            game: self,
         }
     }
 }
@@ -551,6 +552,7 @@ pub struct SGameResult {
     mapepib_confirmed: EnumMap<EPlayerIndex, bool>, // TODO? enumset
     // TODO store all information about finished game
     pub an_payout : EnumMap<EPlayerIndex, isize>,
+    pub game: SGame,
 }
 
 impl TGamePhase for SGameResult { // "absorbing state"

@@ -601,10 +601,14 @@ impl SPeers {
                             );
                         },
                         GameResult((gameresult, mapepib_confirmed)) => {
+                            let slcstich = gameresult.game.stichseq.completed_stichs();
                             self.0.for_each(
-                                None, // TODO last stich should stay
-                                None, // TODO second-to-last stich should stay
-                                None, // TODO rules should be accessible
+                                debug_verify!(slcstich.last()),
+                                debug_verify!(slcstich.split_last())
+                                    .and_then(|(_stich_last, slcstich_up_to_last)|
+                                        debug_verify!(slcstich_up_to_last.last())
+                                    ),
+                                Some(gameresult.game.rules.as_ref()),
                                 |_epi| vec![],
                                 |epi, otimeoutcmd| {
                                     if !mapepib_confirmed[epi] {
