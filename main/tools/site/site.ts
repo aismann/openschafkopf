@@ -47,28 +47,26 @@ ws.onmessage = function(msg) {
         console.log(div_hand_old.parentNode);
         div_hand_old.parentNode.replaceChild(div_hand, div_hand_old);
     }
-    if ("Ask" in any_parsed[2]) {
-        let div_askpanel = document.getElementById("askpanel");
+    let div_askpanel = document.getElementById("askpanel");
+    if ("Ask" in any_parsed[2] && any_parsed[2]["Ask"]) { // TODO is this the canonical emptiness check?
         let paragraph_btns = document.createElement("p");
-        if (any_parsed[2]["Ask"]) { // TODO is this the canonical emptiness check?
-            let div_askpanel_new = document.createElement("DIV");
-            div_askpanel_new.id = "askpanel";
-            for (let x of any_parsed[2]["Ask"]) {
-                console.log(x);
-                let btn = document.createElement("BUTTON");
-                btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
-                btn.onclick = function () {
-                    console.log(x[1]);
-                    ws.send(JSON.stringify(x[1]));
-                };
-                paragraph_btns.appendChild(btn);
-                div_askpanel_new.appendChild(paragraph_btns);
-                //window.scrollTo(0, document.body.scrollHeight);
-            }
-            div_askpanel.parentNode.replaceChild(div_askpanel_new, div_askpanel);
-        } else {
-            div_askpanel.hidden = true;
+        let div_askpanel_new = document.createElement("DIV");
+        div_askpanel_new.id = "askpanel";
+        for (let x of any_parsed[2]["Ask"]) {
+            console.log(x);
+            let btn = document.createElement("BUTTON");
+            btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
+            btn.onclick = function () {
+                console.log(x[1]);
+                ws.send(JSON.stringify(x[1]));
+            };
+            paragraph_btns.appendChild(btn);
+            div_askpanel_new.appendChild(paragraph_btns);
+            //window.scrollTo(0, document.body.scrollHeight);
         }
+        div_askpanel.parentNode.replaceChild(div_askpanel_new, div_askpanel);
+    } else {
+        div_askpanel.hidden = true;
     }
     {
         console.log(any_parsed[3]);
