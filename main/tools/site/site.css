@@ -53,6 +53,7 @@
   max-height: 20%;
   background-color: #0000ff45;
   height: 80px;
+  z-index: 999;
 }
 
 
@@ -66,7 +67,7 @@ li {
     left: 10%;
     top: 10%;
     right: 10%;
-    bottom: 10%;
+    bottom: 20%;
     overflow-x: visible;
     overflow-y: auto;
     z-index: 1000;
