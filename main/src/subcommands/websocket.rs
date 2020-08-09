@@ -24,6 +24,7 @@ use async_std::{
 use async_tungstenite::tungstenite::protocol::Message;
 use crate::primitives::*;
 use rand::prelude::*;
+use itertools::Itertools;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 enum VGamePhaseGeneric<DealCards, GamePreparations, DetermineRules, Game, GameResult> {
@@ -391,6 +392,7 @@ impl SPeers {
                     fn ask_with_timeout(
                         otimeoutcmd: &mut Option<STimeoutCmd>,
                         epi: EPlayerIndex,
+                        str_question: String,
                         itgamephaseaction: impl Iterator<Item=(String, VGamePhaseAction)>,
                         peers_mutex: Arc<Mutex<SPeers>>,
                         gamephaseaction_timeout: VGamePhaseAction,
@@ -411,7 +413,10 @@ impl SPeers {
                             aborthandle,
                         });
                         task::spawn(timerfuture);
-                        VMessage::Ask(itgamephaseaction.collect())
+                        VMessage::Ask{
+                            str_question,
+                            vecstrgamephaseaction: itgamephaseaction.collect(),
+                        }
                     }
                     use VGamePhaseGeneric::*;
                     match whichplayercandosomething {
@@ -426,6 +431,7 @@ impl SPeers {
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi_doubling,
+                                            "Doppeln?".into(),
                                             [(true, "Doppeln"), (false, "Nicht doppeln")]
                                                 .iter()
                                                 .map(|(b_doubling, str_doubling)| 
@@ -467,6 +473,42 @@ impl SPeers {
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi_announce_game,
+                                            format!("Du bist an {}. Stelle. {}",
+                                                epi_announce_game.to_usize() + 1, // EPlayerIndex is 0-based
+                                                {
+                                                    // TODO inform about player names
+                                                    let vectplepirules = gamepreparations.gameannouncements
+                                                        .iter()
+                                                        .filter_map(|(epi, orules)| orules.as_ref().map(|rules| (epi, rules)))
+                                                        .collect::<Vec<_>>();
+                                                    if vectplepirules.is_empty() {
+                                                        "Bisher will niemand spielen. Spielst Du?".to_string()
+                                                    } else {
+                                                        match vectplepirules.iter().exactly_one() {
+                                                            Ok((epi_announced, _rules)) => {
+                                                                format!(
+                                                                    "Vor Dir spielt an {}. Stelle. Spielst Du auch?",
+                                                                    epi_announced.to_usize() + 1, // EPlayerIndex is 0-based
+                                                                )
+                                                            },
+                                                            Err(ittplepirules) => {
+                                                                format!(
+                                                                    "Vor Dir spielen: An {}. Spielst Du auch?",
+                                                                    ittplepirules
+                                                                        .map(|(epi_announced, _rules)| {
+                                                                            format!(
+                                                                                "{}. Stelle",
+                                                                                epi_announced.to_usize() + 1, // EPlayerIndex is 0-based
+                                                                            )
+                                                                        })
+                                                                        .join(", ")
+                                                                )
+                                                            },
+                                                        }
+                                                    }
+                                                }
+                                                    
+                                            ),
                                             itgamephaseaction_rules,
                                             self_mutex.clone(),
                                             gamephaseaction_rules_default,
@@ -504,6 +546,12 @@ impl SPeers {
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi_determine,
+                                            format!(
+                                                "Du bist an {}. Stelle. Von {}. Stelle wird {} geboten. Spielst Du etwas staerkeres?", // TODO umlaut-tactics?
+                                                epi.to_usize() + 1, // EPlayerIndex is 0-based
+                                                determinerules.pairepirules_current_bid.0.to_usize() + 1, // EPlayerIndex is 0-based
+                                                determinerules.pairepirules_current_bid.1.to_string(),
+                                            ),
                                             itgamephaseaction_rules,
                                             self_mutex.clone(),
                                             gamephaseaction_rules_default,
@@ -530,6 +578,7 @@ impl SPeers {
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi_card,
+                                            "".into(),
                                             vecmessage.into_iter(),
                                             self_mutex.clone(),
                                             VGamePhaseAction::Game(VGameAction::Zugeben(
@@ -542,13 +591,16 @@ impl SPeers {
                                     } else if vecmessage.is_empty() {
                                         VMessage::Info(format!("Asking {:?} for card", epi_card))
                                     } else {
-                                        VMessage::Ask(vecmessage)
+                                        VMessage::Ask{
+                                            str_question: "".into(),
+                                            vecstrgamephaseaction: vecmessage,
+                                        }
                                     }
                                 },
                                 |_peer| VMessage::Info(format!("Asking {:?} for card", epi_card)),
                             );
                         },
-                        GameResult((_gameresult, mapepib_confirmed)) => {
+                        GameResult((gameresult, mapepib_confirmed)) => {
                             self.0.for_each(
                                 None, // TODO last stich should stay
                                 None, // TODO second-to-last stich should stay
@@ -559,6 +611,11 @@ impl SPeers {
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi,
+                                            format!("Spiel beendet. {}", if gameresult.an_payout[epi] < 0 {
+                                                format!("Verlust: {}", -gameresult.an_payout[epi])
+                                            } else {
+                                                format!("Gewinn: {}", gameresult.an_payout[epi])
+                                            }),
                                             std::iter::once(("Ok".into(), VGamePhaseAction::GameResult(()))),
                                             self_mutex.clone(),
                                             VGamePhaseAction::GameResult(()),
@@ -589,7 +646,10 @@ impl SPeers {
 #[derive(Serialize)]
 enum VMessage {
     Info(String),
-    Ask(Vec<(String, VGamePhaseAction)>),
+    Ask{
+        str_question: String,
+        vecstrgamephaseaction: Vec<(String, VGamePhaseAction)>,
+    },
 }
 
 // timer adapted from https://rust-lang.github.io/async-book/02_execution/03_wakeups.html

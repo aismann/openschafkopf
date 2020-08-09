@@ -201,7 +201,7 @@ pub struct SDetermineRules {
     pub ruleset : SRuleSet,
     pub vecpairepirules_queued : Vec<(EPlayerIndex, Box<dyn TActivelyPlayableRules>)>,
     pub n_stock : isize,
-    pairepirules_current_bid : (EPlayerIndex, Box<dyn TActivelyPlayableRules>),
+    pub pairepirules_current_bid : (EPlayerIndex, Box<dyn TActivelyPlayableRules>),
 }
 
 impl TGamePhase for SDetermineRules {

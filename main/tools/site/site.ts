@@ -48,11 +48,18 @@ ws.onmessage = function(msg) {
         div_hand_old.parentNode.replaceChild(div_hand, div_hand_old);
     }
     let div_askpanel = document.getElementById("askpanel");
-    if ("Ask" in any_parsed[2] && any_parsed[2]["Ask"]) { // TODO is this the canonical emptiness check?
-        let paragraph_btns = document.createElement("p");
+    if ("Ask" in any_parsed[2]) {
+        console.log("ASK: " + any_parsed[2]["Ask"].vecstrgamephaseaction[0]);
+    }
+    if ("Ask" in any_parsed[2] && any_parsed[2]["Ask"].vecstrgamephaseaction) { // TODO is this the canonical emptiness check?
+        console.log("ASK: " + any_parsed[2]["Ask"]);
         let div_askpanel_new = document.createElement("DIV");
         div_askpanel_new.id = "askpanel";
-        for (let x of any_parsed[2]["Ask"]) {
+        let paragraph_title = document.createElement("p");
+        paragraph_title.appendChild(document.createTextNode(any_parsed[2].Ask.str_question));
+        div_askpanel_new.appendChild(paragraph_title);
+        let paragraph_btns = document.createElement("p");
+        for (let x of any_parsed[2]["Ask"].vecstrgamephaseaction) {
             console.log(x);
             let btn = document.createElement("BUTTON");
             btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
