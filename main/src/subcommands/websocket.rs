@@ -195,9 +195,17 @@ impl SPeers0 {
                     [None, None, None, None]
                 }
             };
+            #[derive(new, Serialize)]
+            struct SSiteState {
+                vectplstrstr_caption_message_zugeben: Vec<(String, VGamePhaseAction)>,
+                msg: VMessage,
+                ostich_current: [Option<String>; EPlayerIndex::SIZE],
+                ostich_prev: [Option<String>; EPlayerIndex::SIZE],
+                oepi_winner_prev: Option<EPlayerIndex>,
+                oepi_animate_card: Option<EPlayerIndex>,
+            }
             debug_verify!(peer.txmsg.unbounded_send(
-                debug_verify!(serde_json::to_string(&(
-                    oepi,
+                debug_verify!(serde_json::to_string(&SSiteState::new(
                     veccard.into_iter()
                         .map(|card| (card.to_string(), VGamePhaseAction::Game(VGameAction::Zugeben(card))))
                         .collect::<Vec<_>>(),

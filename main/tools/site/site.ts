@@ -19,21 +19,23 @@ interface Cards {
     veccard : Array<SCard>,
 }
 
+class SSiteState {
+    readonly vectplstrstr_caption_message_zugeben: Array<[string, string]>;
+    readonly msg: string;
+    readonly ostich_current: null | Array<null | String>;
+    readonly ostich_prev: null | Array<null | String>; // TODO good idea to have optionals?
+    readonly oepi_winner_prev: null | number; // TODO should be together with ostich_prev
+    readonly oepi_animate_card: null | number; // TODO should be derived from ostich_current
+}
+
 let ws = new WebSocket("ws://localhost:8080");
 ws.onmessage = function(msg) {
     let any_parsed = JSON.parse(msg.data);
     console.log(any_parsed);
-    // any_parsed[0]: EPlayerIndex
-    // any_parsed[1]: vectplstrstr_caption_message_zugeben
-    // any_parsed[2]: VMessage
-    // any_parsed[3]: stich (relative to EPlayerIndex, so that client does not have to shift)
-    // any_parsed[4]: previous stich (relative to EPlayerIndex, so that client does not have to shift)
-    // any_parsed[5]: (optional) winner index of previous stich // TODO should be part of previous stich
-    // any_parsed[6]: Last EPlayerIndex of current stich (to be animated)
-    if (Array.isArray(any_parsed[1])) {
+    if (Array.isArray(any_parsed.vectplstrstr_caption_message_zugeben)) {
         let div_hand = document.createElement("DIV");
         div_hand.id = "hand";
-        for (let x of any_parsed[1]) {
+        for (let x of any_parsed.vectplstrstr_caption_message_zugeben) {
             console.log(x);
             let div_card = document.createElement("DIV");
             div_card.className = "card card_hand card_" + x[0];
@@ -49,18 +51,18 @@ ws.onmessage = function(msg) {
         div_hand_old.parentNode.replaceChild(div_hand, div_hand_old);
     }
     let div_askpanel = document.getElementById("askpanel");
-    if ("Ask" in any_parsed[2]) {
-        console.log("ASK: " + any_parsed[2]["Ask"].vecstrgamephaseaction[0]);
+    if ("Ask" in any_parsed.msg) {
+        console.log("ASK: " + any_parsed.msg["Ask"].vecstrgamephaseaction[0]);
     }
-    if ("Ask" in any_parsed[2] && any_parsed[2]["Ask"].vecstrgamephaseaction) { // TODO is this the canonical emptiness check?
-        console.log("ASK: " + any_parsed[2]["Ask"]);
+    if ("Ask" in any_parsed.msg && any_parsed.msg["Ask"].vecstrgamephaseaction) { // TODO is this the canonical emptiness check?
+        console.log("ASK: " + any_parsed.msg["Ask"]);
         let div_askpanel_new = document.createElement("DIV");
         div_askpanel_new.id = "askpanel";
         let paragraph_title = document.createElement("p");
-        paragraph_title.appendChild(document.createTextNode(any_parsed[2].Ask.str_question));
+        paragraph_title.appendChild(document.createTextNode(any_parsed.msg.Ask.str_question));
         div_askpanel_new.appendChild(paragraph_title);
         let paragraph_btns = document.createElement("p");
-        for (let x of any_parsed[2]["Ask"].vecstrgamephaseaction) {
+        for (let x of any_parsed.msg["Ask"].vecstrgamephaseaction) {
             console.log(x);
             let btn = document.createElement("BUTTON");
             btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
@@ -77,17 +79,17 @@ ws.onmessage = function(msg) {
         div_askpanel.hidden = true;
     }
     {
-        console.log(any_parsed[3]);
-        console.log("Most recent card: " + any_parsed[6]);
+        console.log(any_parsed.ostich_current);
+        console.log("Most recent card: " + any_parsed.oepi_animate_card);
         let div_stich_new = document.createElement("DIV");
         div_stich_new.id = "stich";
         let i_epi = 0;
         for (i_epi = 0; i_epi<4; i_epi++) {
             let div_card = document.createElement("DIV");
             div_card.className = "card_stich card_stich_" + i_epi + " card";
-            if (any_parsed[3][i_epi]) {
-                div_card.className += " card_" + any_parsed[3][i_epi];
-                if (any_parsed[6]==EPlayerIndex[i_epi]) {
+            if (any_parsed.ostich_current[i_epi]) {
+                div_card.className += " card_" + any_parsed.ostich_current[i_epi];
+                if (any_parsed.oepi_animate_card==EPlayerIndex[i_epi]) {
                     div_card.style.animationDuration = "1s";
                 } else {
                     div_card.style.animationDuration = "0s";
@@ -99,15 +101,15 @@ ws.onmessage = function(msg) {
         div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
     }
     {
-        console.log(any_parsed[4]);
+        console.log(any_parsed.ostich_prev);
         let div_stich_new = document.createElement("DIV");
         div_stich_new.id = "stich_old";
         let i_epi = 0;
         for (i_epi = 0; i_epi<4; i_epi++) {
             let div_card = document.createElement("DIV");
             div_card.className = "card_stich card_stich_" + i_epi + " card";
-            if (any_parsed[4][i_epi]) {
-                div_card.className += " card_" + any_parsed[4][i_epi];
+            if (any_parsed.ostich_prev[i_epi]) {
+                div_card.className += " card_" + any_parsed.ostich_prev[i_epi];
             }
             div_stich_new.appendChild(div_card);
         }
@@ -115,10 +117,10 @@ ws.onmessage = function(msg) {
         div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
     }
     {
-        console.log(any_parsed[5]);
-        if (any_parsed[5]) {
+        console.log(any_parsed.oepi_winner_prev);
+        if (any_parsed.oepi_winner_prev) {
             let div_stich_old = document.getElementById("stich_old");
-            switch(any_parsed[5]){
+            switch(any_parsed.oepi_winner_prev){
                 case "EPI0": {
                     div_stich_old.style.left = "40%";
                     div_stich_old.style.top = "70%";
