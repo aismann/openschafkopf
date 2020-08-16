@@ -112,28 +112,7 @@ ws.onmessage = function(msg) {
         console.log(any_parsed.oepi_winner_prev);
         if (any_parsed.oepi_winner_prev) {
             let div_stich_old = document.getElementById("stich_old");
-            switch(any_parsed.oepi_winner_prev){
-                case "EPI0": {
-                    div_stich_old.style.left = "40%";
-                    div_stich_old.style.top = "70%";
-                    break;
-                }
-                case "EPI1": {
-                    div_stich_old.style.left = "5%";
-                    div_stich_old.style.top = "40%";
-                    break;
-                }
-                case "EPI2": {
-                    div_stich_old.style.left = "40%";
-                    div_stich_old.style.top = "5%";
-                    break;
-                }
-                case "EPI3": {
-                    div_stich_old.style.left = "75%";
-                    div_stich_old.style.top = "40%";
-                    break;
-                }
-            }
+            div_stich_old.className = "stich_old_" + any_parsed.oepi_winner_prev;
         }
     }
 };

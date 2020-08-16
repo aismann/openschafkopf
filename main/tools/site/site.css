@@ -138,10 +138,25 @@ li {
 #stich_old {
   background: #00ffcf;
   position: absolute;
-  left: 5%;
-  top: 40%;
   width: 20%;
   height: 20%;
+}
+
+#stich_old.stich_old_EPI0 {
+    left: 40%;
+    top: 70%;
+}
+#stich_old.stich_old_EPI1 {
+    left: 5%;
+    top: 40%;
+}
+#stich_old.stich_old_EPI2 {
+    left: 40%;
+    top: 5%;
+}
+#stich_old.stich_old_EPI3 {
+    left: 75%;
+    top: 40%;
 }
 
 .card_E7 {
