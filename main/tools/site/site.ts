@@ -1,11 +1,3 @@
-function greeter(person: string) {
-    return "hallo: " + person;    
-}
-
-let user = "Nutzer Name";
-
-document.body.textContent = greeter(user);
-
 enum EPlayerIndex { EPI0=0, EPI1, EPI2, EPI3, } // TODO "numeric" enum necessary?
 
 enum SCard {
