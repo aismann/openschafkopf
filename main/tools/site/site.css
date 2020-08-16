@@ -104,7 +104,6 @@
   z-index: 999;
 }
 
-
 li {
   marker: none;
   display: block;
@@ -128,35 +127,101 @@ li {
 }
 
 #stich {
-  background: #00ffcf;
+  background: #00ffcf55;
   position: absolute;
   left: 30%;
   top: 30%;
   width: 40%;
   height: 40%;
 }
-#stich_old {
-  background: #00ffcf;
-  position: absolute;
-  width: 20%;
-  height: 20%;
-}
 
 #stich_old.stich_old_EPI0 {
-    left: 40%;
-    top: 70%;
+    animation-fill-mode: forwards;
+    animation-name: stich_old_stich_old_EPI0;
+}
+@keyframes stich_old_stich_old_EPI0 {
+    from {
+        background: #00ffcf;
+        position: absolute;
+        left: 30%;
+        top: 30%;
+        width: 40%;
+        height: 40%;
+    }
+    to {
+        background: #00ffcf;
+        position: absolute;
+        width: 20%;
+        height: 20%;
+        left: 40%;
+        top: 70%;
+    }
 }
 #stich_old.stich_old_EPI1 {
-    left: 5%;
-    top: 40%;
+    animation-fill-mode: forwards;
+    animation-name: stich_old_stich_old_EPI1;
+}
+@keyframes stich_old_stich_old_EPI1 {
+    from {
+        background: #00ffcf;
+        position: absolute;
+        left: 30%;
+        top: 30%;
+        width: 40%;
+        height: 40%;
+    }
+    to {
+        background: #00ffcf;
+        position: absolute;
+        width: 20%;
+        height: 20%;
+        left: 5%;
+        top: 40%;
+    }
 }
 #stich_old.stich_old_EPI2 {
-    left: 40%;
-    top: 5%;
+    animation-fill-mode: forwards;
+    animation-name: stich_old_stich_old_EPI2;
+}
+@keyframes stich_old_stich_old_EPI2 {
+    from {
+        background: #00ffcf;
+        position: absolute;
+        left: 30%;
+        top: 30%;
+        width: 40%;
+        height: 40%;
+    }
+    to {
+        background: #00ffcf;
+        position: absolute;
+        width: 20%;
+        height: 20%;
+        left: 40%;
+        top: 5%;
+    }
 }
 #stich_old.stich_old_EPI3 {
-    left: 75%;
-    top: 40%;
+    animation-fill-mode: forwards;
+    animation-name: stich_old_stich_old_EPI3;
+}
+@keyframes stich_old_stich_old_EPI3 {
+    from {
+        background: #00ffcf;
+        position: absolute;
+        left: 30%;
+        top: 30%;
+        width: 40%;
+        height: 40%;
+    }
+    to {
+        background: #00ffcf;
+        position: absolute;
+        width: 20%;
+        height: 20%;
+        left: 75%;
+        top: 40%;
+    }
 }
 
 .card_E7 {

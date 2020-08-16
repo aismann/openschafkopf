@@ -82,7 +82,7 @@ ws.onmessage = function(msg) {
             if (any_parsed.ostich_current[i_epi]) {
                 div_card.className += " card_" + any_parsed.ostich_current[i_epi];
                 if (any_parsed.oepi_animate_card==EPlayerIndex[i_epi]) {
-                    div_card.style.animationDuration = "1s";
+                    div_card.style.animationDuration = "250ms";
                 } else {
                     div_card.style.animationDuration = "0s";
                 }
@@ -102,6 +102,17 @@ ws.onmessage = function(msg) {
             div_card.className = "card_stich card_stich_" + i_epi + " card";
             if (any_parsed.ostich_prev[i_epi]) {
                 div_card.className += " card_" + any_parsed.ostich_prev[i_epi];
+            }
+            if (
+                any_parsed.ostich_current
+                && !any_parsed.ostich_current[0]
+                && !any_parsed.ostich_current[1]
+                && !any_parsed.ostich_current[2]
+                && !any_parsed.ostich_current[3]
+            ) {
+                div_stich_new.style.animationDuration = "250ms";
+            } else {
+                div_stich_new.style.animationDuration = "0s";
             }
             div_stich_new.appendChild(div_card);
         }
