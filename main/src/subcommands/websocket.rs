@@ -481,7 +481,10 @@ impl SPeers {
                                                         .iter()
                                                         .filter_map(|(epi, orules)| orules.as_ref().map(|rules| (epi, rules)))
                                                         .collect::<Vec<_>>();
-                                                    if vectplepirules.is_empty() {
+                                                    if epi==EPlayerIndex::EPI0 {
+                                                        assert!(vectplepirules.is_empty());
+                                                        "".to_string()
+                                                    } else if vectplepirules.is_empty() {
                                                         "Bisher will niemand spielen. Spielst Du?".to_string()
                                                     } else {
                                                         match vectplepirules.iter().exactly_one() {
