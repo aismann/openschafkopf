@@ -205,6 +205,10 @@ impl SPeers0 {
                     serialize_stich(ostich_current),
                     serialize_stich(ostich_prev),
                     ostich_current.map(|stich| stich.first_playerindex().wrapping_add(EPlayerIndex::SIZE - i_epi_relative)), // winner index of ostich_prev // TODO should be part of ostich_prev
+                    ostich_current
+                        .and_then(SStich::current_playerindex)
+                        .map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - 1)) // TODO plain_enum wrapping_sub
+                        .map(|epi| epi.wrapping_add(i_epi_relative)),
                 ))).unwrap().into()
             )).unwrap();
         };

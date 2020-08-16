@@ -6,7 +6,7 @@ let user = "Nutzer Name";
 
 document.body.textContent = greeter(user);
 
-enum EPlayerIndex { EPI0, EPI1, EPI2, EPI3, }
+enum EPlayerIndex { EPI0=0, EPI1, EPI2, EPI3, } // TODO "numeric" enum necessary?
 
 enum SCard {
     E7, E8, E9, EZ, EU, EO, EK, EA,
@@ -29,6 +29,7 @@ ws.onmessage = function(msg) {
     // any_parsed[3]: stich (relative to EPlayerIndex, so that client does not have to shift)
     // any_parsed[4]: previous stich (relative to EPlayerIndex, so that client does not have to shift)
     // any_parsed[5]: (optional) winner index of previous stich // TODO should be part of previous stich
+    // any_parsed[6]: Last EPlayerIndex of current stich (to be animated)
     if (Array.isArray(any_parsed[1])) {
         let div_hand = document.createElement("DIV");
         div_hand.id = "hand";
@@ -77,6 +78,7 @@ ws.onmessage = function(msg) {
     }
     {
         console.log(any_parsed[3]);
+        console.log("Most recent card: " + any_parsed[6]);
         let div_stich_new = document.createElement("DIV");
         div_stich_new.id = "stich";
         let i_epi = 0;
@@ -85,6 +87,11 @@ ws.onmessage = function(msg) {
             div_card.className = "card_stich card_stich_" + i_epi + " card";
             if (any_parsed[3][i_epi]) {
                 div_card.className += " card_" + any_parsed[3][i_epi];
+                if (any_parsed[6]==EPlayerIndex[i_epi]) {
+                    div_card.style.animationDuration = "1s";
+                } else {
+                    div_card.style.animationDuration = "0s";
+                }
             }
             div_stich_new.appendChild(div_card);
         }

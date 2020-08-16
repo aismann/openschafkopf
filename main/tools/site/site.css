@@ -14,20 +14,68 @@
   position: absolute;
 }
 .card_stich_0 {
-  left: 25%;
-  top: 50%;
+    animation-fill-mode: forwards;
+    animation-name: card_stich_0_slidein;
+}
+@keyframes card_stich_0_slidein {
+    from {
+        opacity: 0;
+        left: 25%;
+        top: 100%;
+    }
+    to {
+        opacity: 1;
+        left: 25%;
+        top: 50%;
+    }
 }
 .card_stich_1 {
-  left: 0%;
-  top: 25%;
+    animation-fill-mode: forwards;
+    animation-name: card_stich_1_slidein;
+}
+@keyframes card_stich_1_slidein {
+    from {
+        opacity: 0;
+        left: -50%;
+        top: 25%;
+    }
+    to {
+        opacity: 1;
+        left: 0%;
+        top: 25%;
+    }
 }
 .card_stich_2 {
-  left: 25%;
-  top: 0%;
+    animation-fill-mode: forwards;
+    animation-name: card_stich_2_slidein;
+}
+@keyframes card_stich_2_slidein {
+    from {
+        opacity: 0;
+        left: 25%;
+        top: -50%;
+    }
+    to {
+        opacity: 1;
+        left: 25%;
+        top: 0%;
+    }
 }
 .card_stich_3 {
-  left: 50%;
-  top: 25%;
+    animation-fill-mode: forwards;
+    animation-name: card_stich_3_slidein;
+}
+@keyframes card_stich_3_slidein {
+    from {
+        opacity: 0;
+        left: 100%;
+        top: 25%;
+    }
+    to {
+        opacity: 1;
+        left: 50%;
+        top: 25%;
+    }
 }
 .card {
   background-size: contain;
