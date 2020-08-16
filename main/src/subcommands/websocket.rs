@@ -203,6 +203,7 @@ impl SPeers0 {
                 ostich_prev: [Option<String>; EPlayerIndex::SIZE],
                 oepi_winner_prev: Option<EPlayerIndex>,
                 oepi_animate_card: Option<EPlayerIndex>,
+                mapepistr: [String; EPlayerIndex::SIZE],
             }
             debug_verify!(peer.txmsg.unbounded_send(
                 debug_verify!(serde_json::to_string(&SSiteState::new(
@@ -218,6 +219,13 @@ impl SPeers0 {
                         .and_then(SStich::current_playerindex)
                         .map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - 1)) // TODO plain_enum wrapping_sub
                         .map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - i_epi_relative)), // winner index of ostich_prev // TODO should be part of ostich_prev
+                    EPlayerIndex::map_from_fn(|epi| 
+                        format!("TODO Spieler {}",
+                            epi
+                                .wrapping_add(EPlayerIndex::SIZE - i_epi_relative)
+                                .to_usize()
+                        )
+                    ).into_raw(),
                 ))).unwrap().into()
             )).unwrap();
         };

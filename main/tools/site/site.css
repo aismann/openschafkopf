@@ -224,6 +224,31 @@ li {
     }
 }
 
+#playerpanel_player_0 {
+    position: absolute;
+    width: 30%;
+    right: 0%;
+    bottom: 10%;
+}
+#playerpanel_player_1 {
+    position: absolute;
+    width: 20%;
+    bottom: 60%;
+    left: 5%;
+}
+#playerpanel_player_2 {
+    position: absolute;
+    width: 40%; /*override*/
+    left:30%;
+    top: 0%;
+}
+#playerpanel_player_3 {
+    position: absolute;
+    width: 20%;
+    bottom: 60%;
+    left: 75%;
+}
+
 .card_E7 {
   background-image: url("img/E7.jpg");
 }

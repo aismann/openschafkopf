@@ -18,6 +18,7 @@ class SSiteState {
     readonly ostich_prev: null | Array<null | String>; // TODO good idea to have optionals?
     readonly oepi_winner_prev: null | number; // TODO should be together with ostich_prev
     readonly oepi_animate_card: null | number; // TODO should be derived from ostich_current
+    readonly mapepistr: Array<string>;
 }
 
 let ws = new WebSocket("ws://localhost:8080");
@@ -124,6 +125,14 @@ ws.onmessage = function(msg) {
         if (any_parsed.oepi_winner_prev) {
             let div_stich_old = document.getElementById("stich_old");
             div_stich_old.className = "stich_old_" + any_parsed.oepi_winner_prev;
+        }
+    }
+    {
+        console.log(any_parsed.mapepistr);
+        let i_epi = 0;
+        for (i_epi = 0; i_epi<4; i_epi++) {
+            let div_player = document.getElementById("playerpanel_player_" + i_epi);
+            div_player.textContent = any_parsed.mapepistr[i_epi];
         }
     }
 };
