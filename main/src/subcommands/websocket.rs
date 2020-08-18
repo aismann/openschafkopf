@@ -216,6 +216,7 @@ impl SPeers0 {
                 oepi_winner_prev: Option<EPlayerIndex>,
                 oepi_animate_card: Option<EPlayerIndex>,
                 mapepistr: [String; EPlayerIndex::SIZE],
+                otplepistr_rules: Option<(EPlayerIndex, String)>,
             }
             debug_verify!(peer.txmsg.unbounded_send(
                 debug_verify!(serde_json::to_string(&SSiteState::new(
@@ -239,6 +240,11 @@ impl SPeers0 {
                                 .to_usize(),
                         )
                     ).into_raw(),
+                    orules.map(|rules| (
+                        rules.playerindex().unwrap_or(EPlayerIndex::EPI3) // geber designates rules if no active
+                            .wrapping_add(EPlayerIndex::SIZE - i_epi_relative),
+                        format!("{}", rules),
+                    )),
                 ))).unwrap().into()
             )).unwrap();
         };
