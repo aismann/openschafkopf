@@ -62,6 +62,10 @@ type VGamePhaseAction = VGamePhaseGeneric<
     /*Game*/VGameAction,
     /*GameResult*/(), // TODO? should players be able to "accept" result?
 >;
+#[derive(Deserialize)]
+struct SPlayerLogin {
+    str_player_name: String,
+}
 
 impl VGamePhase {
     fn which_player_can_do_something(&self) -> Option<VGamePhaseActivePlayerInfo> {
@@ -91,6 +95,7 @@ struct SPeer {
     sockaddr: SocketAddr,
     txmsg: UnboundedSender<Message>,
     n_money: isize,
+    str_name: String,
 }
 
 fn static_ruleset() -> SRuleSet {
@@ -183,6 +188,13 @@ impl SPeers0 {
         mut f_active: impl FnMut(EPlayerIndex, &mut Option<STimeoutCmd>)->VMessage,
         mut f_inactive: impl FnMut(&mut SPeer)->VMessage,
     ) {
+        let mapepistr_name = self.mapepiopeer.map(|activepeer| // TODO can we avoid temporary storage?
+            activepeer
+                .opeer
+                .as_ref()
+                .map(|peer| peer.str_name.clone())
+                .unwrap_or("<BOT>".to_string())
+        );
         let communicate = |oepi: Option<EPlayerIndex>, veccard: Vec<SCard>, msg, peer: &mut SPeer| {
             let i_epi_relative = oepi.unwrap_or(EPlayerIndex::EPI0).to_usize();
             let serialize_stich = |ostich: Option<&SStich>| {
@@ -220,10 +232,11 @@ impl SPeers0 {
                         .map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - 1)) // TODO plain_enum wrapping_sub
                         .map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - i_epi_relative)), // winner index of ostich_prev // TODO should be part of ostich_prev
                     EPlayerIndex::map_from_fn(|epi| 
-                        format!("TODO Spieler {}",
+                        format!("{} ({})",
+                            mapepistr_name[epi.wrapping_add(i_epi_relative)],
                             epi
                                 .wrapping_add(EPlayerIndex::SIZE - i_epi_relative)
-                                .to_usize()
+                                .to_usize(),
                         )
                     ).into_raw(),
                 ))).unwrap().into()
@@ -740,6 +753,7 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
         sockaddr,
         txmsg,
         n_money: 0,
+        str_name: "<Name>".into(), // TODO can we initialize it right away?
     });
     let (sink_ws_out, stream_ws_in) = wsstream.split();
     let broadcast_incoming = stream_ws_in
@@ -759,9 +773,21 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                 oepi,
                 str_msg,
             );
+            // TODO we should probably have only one single enum representing all possible incoming msgs
             match serde_json::from_str(str_msg) {
                 Ok(gamephaseaction) => peers.send_msg(peers_mutex.clone(), oepi, Some(gamephaseaction)),
-                Err(e) => println!("Error: {}", e),
+                Err(_) => {
+                    match serde_json::from_str::<SPlayerLogin>(str_msg) {
+                        Ok(playerlogin) => if let Some(ref epi)=oepi {
+                            if let Some(ref mut peer) = peers.0.mapepiopeer[*epi].opeer {
+                                peer.str_name = playerlogin.str_player_name;
+                            }
+                        } else if let Some(ref mut peer) = peers.0.vecpeer.iter_mut().find(|peer| peer.sockaddr==sockaddr) {
+                            peer.str_name = playerlogin.str_player_name;
+                        },
+                        Err(e) => println!("Error: {}", e),
+                    }
+                },
             }
             future::ok(())
         });

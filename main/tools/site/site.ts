@@ -21,7 +21,11 @@ class SSiteState {
     readonly mapepistr: Array<string>;
 }
 
+let str_player_name = prompt("Name:");
 let ws = new WebSocket("ws://localhost:8080");
+ws.onopen = function(event) {
+    ws.send(JSON.stringify({"str_player_name": str_player_name}));
+};
 ws.onmessage = function(msg) {
     let any_parsed = JSON.parse(msg.data);
     console.log(any_parsed);
