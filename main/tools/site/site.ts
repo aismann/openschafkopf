@@ -20,6 +20,7 @@ class SSiteState {
     readonly oepi_animate_card: null | number; // TODO should be derived from ostich_current
     readonly mapepistr: Array<string>;
     readonly otplepistr_rules: null | [EPlayerIndex, String]
+    readonly oepi_timeout: null | number;
 }
 
 let str_player_name = prompt("Name:");
@@ -134,10 +135,16 @@ ws.onmessage = function(msg) {
     }
     {
         console.log(any_parsed.mapepistr);
+        console.log(any_parsed.oepi_timeout);
         let i_epi = 0;
         for (i_epi = 0; i_epi<4; i_epi++) {
             let div_player = document.getElementById("playerpanel_player_" + i_epi);
             div_player.textContent = any_parsed.mapepistr[i_epi];
+            if (any_parsed.oepi_timeout===EPlayerIndex[i_epi]) {
+                div_player.className = "playerpanel_active";
+            } else {
+                div_player.className = "";
+            }
         }
     }
     {

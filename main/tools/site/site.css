@@ -224,25 +224,44 @@ li {
     }
 }
 
+.playerpanel_active {
+    box-shadow: 0px 0px 10px red;
+}
 #playerpanel_player_0 {
+    border-color: green;
+    border-style: inset;
+    padding: 5px;
+    border-radius: 10px;
     position: absolute;
     width: 30%;
     right: 0%;
     bottom: 10%;
 }
 #playerpanel_player_1 {
+    border-color: green;
+    border-style: inset;
+    padding: 5px;
+    border-radius: 10px;
     position: absolute;
     width: 20%;
     bottom: 60%;
     left: 5%;
 }
 #playerpanel_player_2 {
+    border-color: green;
+    border-style: inset;
+    padding: 5px;
+    border-radius: 10px;
     position: absolute;
     width: 40%; /*override*/
     left:30%;
     top: 0%;
 }
 #playerpanel_player_3 {
+    border-color: green;
+    border-style: inset;
+    padding: 5px;
+    border-radius: 10px;
     position: absolute;
     width: 20%;
     bottom: 60%;

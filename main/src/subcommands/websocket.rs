@@ -187,6 +187,7 @@ impl SPeers0 {
         f_cards: impl Fn(EPlayerIndex) -> Vec<SCard>,
         mut f_active: impl FnMut(EPlayerIndex, &mut Option<STimeoutCmd>)->VMessage,
         mut f_inactive: impl FnMut(&mut SPeer)->VMessage,
+        oepi_timeout: Option<EPlayerIndex>,
     ) {
         let mapepistr_name = self.mapepiopeer.map(|activepeer| // TODO can we avoid temporary storage?
             activepeer
@@ -217,6 +218,7 @@ impl SPeers0 {
                 oepi_animate_card: Option<EPlayerIndex>,
                 mapepistr: [String; EPlayerIndex::SIZE],
                 otplepistr_rules: Option<(EPlayerIndex, String)>,
+                oepi_timeout: Option<EPlayerIndex>,
             }
             debug_verify!(peer.txmsg.unbounded_send(
                 debug_verify!(serde_json::to_string(&SSiteState::new(
@@ -245,6 +247,7 @@ impl SPeers0 {
                             .wrapping_add(EPlayerIndex::SIZE - i_epi_relative),
                         format!("{}", rules),
                     )),
+                    oepi_timeout.map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - i_epi_relative)),
                 ))).unwrap().into()
             )).unwrap();
         };
@@ -485,6 +488,7 @@ impl SPeers {
                                     }
                                 },
                                 |_peer| VMessage::Info(format!("Asking {:?} for doubling", epi_doubling)),
+                                Some(epi_doubling),
                             );
                         },
                         GamePreparations((gamepreparations, epi_announce_game)) => {
@@ -561,6 +565,7 @@ impl SPeers {
                                     }
                                 },
                                 |_peer| VMessage::Info(format!("Asking {:?} for game", epi_announce_game)),
+                                Some(epi_announce_game),
                             );
                         },
                         DetermineRules((determinerules, (epi_determine, vecrulegroup))) => {
@@ -604,6 +609,7 @@ impl SPeers {
                                     }
                                 },
                                 |_peer| VMessage::Info(format!("Re-Asking {:?} for game", epi_determine)),
+                                Some(epi_determine),
                             );
                         },
                         Game((game, (epi_card, vecepi_stoss))) => {
@@ -641,6 +647,7 @@ impl SPeers {
                                     }
                                 },
                                 |_peer| VMessage::Info(format!("Asking {:?} for card", epi_card)),
+                                Some(epi_card),
                             );
                         },
                         GameResult((gameresult, mapepib_confirmed)) => {
@@ -672,6 +679,7 @@ impl SPeers {
                                     }
                                 },
                                 |_peer| VMessage::Info("Game finished".into()),
+                                None,
                             );
                         },
                     }
@@ -685,6 +693,7 @@ impl SPeers {
                 |_epi| vec![],
                 |_oepi, _otimeoutcmd| VMessage::Info("Waiting for more players.".into()),
                 |_peer| VMessage::Info("Waiting for more players.".into()),
+                None,
             );
         }
     }
