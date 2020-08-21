@@ -198,10 +198,16 @@ impl SPeers0 {
         );
         let communicate = |oepi: Option<EPlayerIndex>, veccard: Vec<SCard>, msg, peer: &mut SPeer| {
             let i_epi_relative = oepi.unwrap_or(EPlayerIndex::EPI0).to_usize();
+            let playerindex_server_to_client = |epi: EPlayerIndex| {
+                epi.wrapping_add(EPlayerIndex::SIZE - i_epi_relative)
+            };
+            let playerindex_client_to_server = |epi: EPlayerIndex| {
+                epi.wrapping_add(i_epi_relative)
+            };
             let serialize_stich = |ostich: Option<&SStich>| {
                 if let Some(stich)=ostich {
                     EPlayerIndex::map_from_fn(|epi| {
-                        stich.get(epi.wrapping_add(i_epi_relative))
+                        stich.get(playerindex_client_to_server(epi))
                             .map(SCard::to_string)
                     }).into_raw()
                 } else {
@@ -229,25 +235,22 @@ impl SPeers0 {
                     serialize_stich(ostich_current),
                     serialize_stich(ostich_prev),
                     ostich_current
-                        .map(|stich| stich.first_playerindex().wrapping_add(EPlayerIndex::SIZE - i_epi_relative)), // winner index of ostich_prev // TODO should be part of ostich_prev
+                        .map(|stich| playerindex_server_to_client(stich.first_playerindex())), // winner index of ostich_prev // TODO should be part of ostich_prev
                     ostich_current
                         .and_then(SStich::current_playerindex)
                         .map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - 1)) // TODO plain_enum wrapping_sub
-                        .map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - i_epi_relative)), // winner index of ostich_prev // TODO should be part of ostich_prev
+                        .map(playerindex_server_to_client), // winner index of ostich_prev // TODO should be part of ostich_prev
                     EPlayerIndex::map_from_fn(|epi| 
                         format!("{} ({})",
-                            mapepistr_name[epi.wrapping_add(i_epi_relative)],
-                            epi
-                                .wrapping_add(EPlayerIndex::SIZE - i_epi_relative)
-                                .to_usize(),
+                            mapepistr_name[playerindex_client_to_server(epi)],
+                            playerindex_server_to_client(epi).to_usize(), // TODO what should we display here?
                         )
                     ).into_raw(),
                     orules.map(|rules| (
-                        rules.playerindex().unwrap_or(EPlayerIndex::EPI3) // geber designates rules if no active
-                            .wrapping_add(EPlayerIndex::SIZE - i_epi_relative),
+                        playerindex_server_to_client(rules.playerindex().unwrap_or(EPlayerIndex::EPI3)), // geber designates rules if no active
                         format!("{}", rules),
                     )),
-                    oepi_timeout.map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - i_epi_relative)),
+                    oepi_timeout.map(playerindex_server_to_client),
                 ))).unwrap().into()
             )).unwrap();
         };
