@@ -243,7 +243,7 @@ impl SPeers0 {
                     EPlayerIndex::map_from_fn(|epi| 
                         format!("{} ({})",
                             mapepistr_name[playerindex_client_to_server(epi)],
-                            playerindex_server_to_client(epi).to_usize(), // TODO what should we display here?
+                            playerindex_client_to_server(epi).to_usize(),
                         )
                     ).into_raw(),
                     orules.map(|rules| (
