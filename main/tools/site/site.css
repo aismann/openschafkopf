@@ -1,7 +1,7 @@
 #table {
   /*! height: 99%; */
   /*! width: 99%; */
-  background-color: #eeffee;
+  /*background-color: #eeffee;*/
   position: absolute;
   left: 0;
   top: 0;
@@ -85,7 +85,7 @@
 
 .card_hand {
   width: 40px;
-  background-color: #ff000017;
+  /*background-color: #ff000017;*/
   display: inline-block;
   margin: 2px;
   position: unset;
@@ -99,7 +99,7 @@
   width: 100%;
   text-align: center;
   max-height: 20%;
-  background-color: #0000ff45;
+  /*background-color: #0000ff45;*/
   height: 80px;
   z-index: 999;
 }
@@ -127,7 +127,7 @@ li {
 }
 
 #stich {
-  background: #00ffcf55;
+  /*background-color: #00ffcf55;*/
   position: absolute;
   left: 30%;
   top: 30%;
@@ -141,7 +141,7 @@ li {
 }
 @keyframes stich_old_stich_old_0 {
     from {
-        background: #00ffcf;
+        /*background-color: #00ffcf;*/
         position: absolute;
         left: 30%;
         top: 30%;
@@ -149,7 +149,7 @@ li {
         height: 40%;
     }
     to {
-        background: #00ffcf;
+        /*background-color: #00ffcf;*/
         position: absolute;
         width: 20%;
         height: 20%;
@@ -163,7 +163,7 @@ li {
 }
 @keyframes stich_old_stich_old_1 {
     from {
-        background: #00ffcf;
+        /*background-color: #00ffcf;*/
         position: absolute;
         left: 30%;
         top: 30%;
@@ -171,7 +171,7 @@ li {
         height: 40%;
     }
     to {
-        background: #00ffcf;
+        /*background-color: #00ffcf;*/
         position: absolute;
         width: 20%;
         height: 20%;
@@ -185,7 +185,7 @@ li {
 }
 @keyframes stich_old_stich_old_2 {
     from {
-        background: #00ffcf;
+        /*background-color: #00ffcf;*/
         position: absolute;
         left: 30%;
         top: 30%;
@@ -193,7 +193,7 @@ li {
         height: 40%;
     }
     to {
-        background: #00ffcf;
+        /*background-color: #00ffcf;*/
         position: absolute;
         width: 20%;
         height: 20%;
@@ -207,7 +207,7 @@ li {
 }
 @keyframes stich_old_stich_old_3 {
     from {
-        background: #00ffcf;
+        /*background-color: #00ffcf;*/
         position: absolute;
         left: 30%;
         top: 30%;
@@ -215,7 +215,7 @@ li {
         height: 40%;
     }
     to {
-        background: #00ffcf;
+        /*background-color: #00ffcf;*/
         position: absolute;
         width: 20%;
         height: 20%;
@@ -269,99 +269,99 @@ li {
 }
 
 .card_E7 {
-  background-image: url("img/E7.jpg");
+  background-image: url("img/E7.png");
 }
 .card_E8 {
-    background-image: url("img/E8.jpg");
+    background-image: url("img/E8.png");
 }
 .card_E9 {
-    background-image: url("img/E9.jpg");
+    background-image: url("img/E9.png");
 }
 .card_EZ {
-    background-image: url("img/EZ.jpg");
+    background-image: url("img/EZ.png");
 }
 .card_EU {
-    background-image: url("img/EU.jpg");
+    background-image: url("img/EU.png");
 }
 .card_EO {
-    background-image: url("img/EO.jpg");
+    background-image: url("img/EO.png");
 }
 .card_EK {
-    background-image: url("img/EK.jpg");
+    background-image: url("img/EK.png");
 }
 .card_EA {
-    background-image: url("img/EA.jpg");
+    background-image: url("img/EA.png");
 }
 .card_G7 {
-    background-image: url("img/G7.jpg");
+    background-image: url("img/G7.png");
 }
 .card_G8 {
-    background-image: url("img/G8.jpg");
+    background-image: url("img/G8.png");
 }
 .card_G9 {
-    background-image: url("img/G9.jpg");
+    background-image: url("img/G9.png");
 }
 .card_GZ {
-    background-image: url("img/GZ.jpg");
+    background-image: url("img/GZ.png");
 }
 .card_GU {
-    background-image: url("img/GU.jpg");
+    background-image: url("img/GU.png");
 }
 .card_GO {
-    background-image: url("img/GO.jpg");
+    background-image: url("img/GO.png");
 }
 .card_GK {
-    background-image: url("img/GK.jpg");
+    background-image: url("img/GK.png");
 }
 .card_GA {
-    background-image: url("img/GA.jpg");
+    background-image: url("img/GA.png");
 }
 .card_H7 {
-    background-image: url("img/H7.jpg");
+    background-image: url("img/H7.png");
 }
 .card_H8 {
-    background-image: url("img/H8.jpg");
+    background-image: url("img/H8.png");
 }
 .card_H9 {
-    background-image: url("img/H9.jpg");
+    background-image: url("img/H9.png");
 }
 .card_HZ {
-    background-image: url("img/HZ.jpg");
+    background-image: url("img/HZ.png");
 }
 .card_HU {
-    background-image: url("img/HU.jpg");
+    background-image: url("img/HU.png");
 }
 .card_HO {
-    background-image: url("img/HO.jpg");
+    background-image: url("img/HO.png");
 }
 .card_HK {
-    background-image: url("img/HK.jpg");
+    background-image: url("img/HK.png");
 }
 .card_HA {
-    background-image: url("img/HA.jpg");
+    background-image: url("img/HA.png");
 }
 .card_S7 {
-    background-image: url("img/S7.jpg");
+    background-image: url("img/S7.png");
 }
 .card_S8 {
-    background-image: url("img/S8.jpg");
+    background-image: url("img/S8.png");
 }
 .card_S9 {
-    background-image: url("img/S9.jpg");
+    background-image: url("img/S9.png");
 }
 .card_SZ {
-    background-image: url("img/SZ.jpg");
+    background-image: url("img/SZ.png");
 }
 .card_SU {
-    background-image: url("img/SU.jpg");
+    background-image: url("img/SU.png");
 }
 .card_SO {
-    background-image: url("img/SO.jpg");
+    background-image: url("img/SO.png");
 }
 .card_SK {
-    background-image: url("img/SK.jpg");
+    background-image: url("img/SK.png");
 }
 .card_SA {
-    background-image: url("img/SA.jpg");
+    background-image: url("img/SA.png");
 }
 
