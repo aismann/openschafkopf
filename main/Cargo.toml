@@ -6,6 +6,8 @@ edition = "2018"
 
 [build-dependencies]
 openschafkopf_util = {path = "../util"}
+image = "0"
+as_num = "0"
 
 [dependencies]
 combine = "3"
