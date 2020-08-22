@@ -36,7 +36,7 @@ fn main() {
             .arg(&path_svg_in)
             .arg(format!("--export-filename={}", debug_verify!(path_out_dir.join("cards.png").to_str()).unwrap()))
     );
-    let path_svg_3dpi = path_out_dir.join("cards.png");
+    let path_svg_3dpi = path_out_dir.join("cards_3dpi.png");
     execute_external(
         &path_svg_in,
         Command::new("inkscape")
