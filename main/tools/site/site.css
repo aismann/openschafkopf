@@ -135,11 +135,11 @@ li {
   height: 40%;
 }
 
-#stich_old.stich_old_EPI0 {
+#stich_old.stich_old_0 {
     animation-fill-mode: forwards;
-    animation-name: stich_old_stich_old_EPI0;
+    animation-name: stich_old_stich_old_0;
 }
-@keyframes stich_old_stich_old_EPI0 {
+@keyframes stich_old_stich_old_0 {
     from {
         background: #00ffcf;
         position: absolute;
@@ -157,11 +157,11 @@ li {
         top: 70%;
     }
 }
-#stich_old.stich_old_EPI1 {
+#stich_old.stich_old_1 {
     animation-fill-mode: forwards;
-    animation-name: stich_old_stich_old_EPI1;
+    animation-name: stich_old_stich_old_1;
 }
-@keyframes stich_old_stich_old_EPI1 {
+@keyframes stich_old_stich_old_1 {
     from {
         background: #00ffcf;
         position: absolute;
@@ -179,11 +179,11 @@ li {
         top: 40%;
     }
 }
-#stich_old.stich_old_EPI2 {
+#stich_old.stich_old_2 {
     animation-fill-mode: forwards;
-    animation-name: stich_old_stich_old_EPI2;
+    animation-name: stich_old_stich_old_2;
 }
-@keyframes stich_old_stich_old_EPI2 {
+@keyframes stich_old_stich_old_2 {
     from {
         background: #00ffcf;
         position: absolute;
@@ -201,11 +201,11 @@ li {
         top: 5%;
     }
 }
-#stich_old.stich_old_EPI3 {
+#stich_old.stich_old_3 {
     animation-fill-mode: forwards;
-    animation-name: stich_old_stich_old_EPI3;
+    animation-name: stich_old_stich_old_3;
 }
-@keyframes stich_old_stich_old_EPI3 {
+@keyframes stich_old_stich_old_3 {
     from {
         background: #00ffcf;
         position: absolute;

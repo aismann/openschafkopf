@@ -1,4 +1,4 @@
-enum EPlayerIndex { EPI0=0, EPI1, EPI2, EPI3, } // TODO "numeric" enum necessary?
+enum EPlayerIndex { EPI0=0, EPI1, EPI2, EPI3, } // TODO can we simplify enum interop with serde?
 
 enum SCard {
     E7, E8, E9, EZ, EU, EO, EK, EA,
@@ -11,16 +11,35 @@ interface Cards {
     veccard : Array<SCard>,
 }
 
+class Ask {
+    str_question: string;
+    vecstrgamephaseaction: Array<[string, any]>;
+}
+class Ask_ {
+    Ask: Ask;
+}
+
+function isAsk(msg: string | Ask_) : msg is Ask_ {
+    return (msg as Ask_).Ask !== undefined;
+}
+function getAsk(msg: string | Ask_) : Ask | null {
+    if (isAsk(msg)) {
+        return msg.Ask;
+    } else {
+        return null;
+    }
+}
+
 class SSiteState {
     readonly vectplstrstr_caption_message_zugeben: Array<[string, string]>;
-    readonly msg: string;
-    readonly ostich_current: null | Array<null | String>;
-    readonly ostich_prev: null | Array<null | String>; // TODO good idea to have optionals?
-    readonly oepi_winner_prev: null | number; // TODO should be together with ostich_prev
-    readonly oepi_animate_card: null | number; // TODO should be derived from ostich_current
+    readonly msg: string | Ask_;
+    readonly ostich_current: null | Array<null | string>;
+    readonly ostich_prev: null | Array<null | string>; // TODO good idea to have optionals?
+    readonly oepi_winner_prev: null | EPlayerIndex; // TODO should be together with ostich_prev
+    readonly oepi_animate_card: null | EPlayerIndex; // TODO should be derived from ostich_current
     readonly mapepistr: Array<string>;
-    readonly otplepistr_rules: null | [EPlayerIndex, String]
-    readonly oepi_timeout: null | number;
+    readonly otplepistr_rules: null | [EPlayerIndex, string]
+    readonly oepi_timeout: null | EPlayerIndex;
 }
 
 let str_player_name = prompt("Name:");
@@ -29,7 +48,7 @@ ws.onopen = function(event) {
     ws.send(JSON.stringify({"str_player_name": str_player_name}));
 };
 ws.onmessage = function(msg) {
-    let any_parsed = JSON.parse(msg.data);
+    let any_parsed = JSON.parse(msg.data) as SSiteState; // assume that server sends valid SSiteState // TODO? assert/check
     console.log(any_parsed);
     if (Array.isArray(any_parsed.vectplstrstr_caption_message_zugeben)) {
         let div_hand = document.createElement("DIV");
@@ -50,18 +69,19 @@ ws.onmessage = function(msg) {
         div_hand_old.parentNode.replaceChild(div_hand, div_hand_old);
     }
     let div_askpanel = document.getElementById("askpanel");
-    if ("Ask" in any_parsed.msg) {
-        console.log("ASK: " + any_parsed.msg["Ask"].vecstrgamephaseaction[0]);
+    let oask = getAsk(any_parsed.msg);
+    if (oask) {
+        console.log("ASK: " + oask.vecstrgamephaseaction[0]);
     }
-    if ("Ask" in any_parsed.msg && any_parsed.msg["Ask"].vecstrgamephaseaction) { // TODO is this the canonical emptiness check?
-        console.log("ASK: " + any_parsed.msg["Ask"]);
+    if (oask && oask.vecstrgamephaseaction) { // TODO is this the canonical emptiness check?
+        console.log("ASK: " + oask);
         let div_askpanel_new = document.createElement("DIV");
         div_askpanel_new.id = "askpanel";
         let paragraph_title = document.createElement("p");
-        paragraph_title.appendChild(document.createTextNode(any_parsed.msg.Ask.str_question));
+        paragraph_title.appendChild(document.createTextNode(oask.str_question));
         div_askpanel_new.appendChild(paragraph_title);
         let paragraph_btns = document.createElement("p");
-        for (let x of any_parsed.msg["Ask"].vecstrgamephaseaction) {
+        for (let x of oask.vecstrgamephaseaction) {
             console.log(x);
             let btn = document.createElement("BUTTON");
             btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
@@ -88,7 +108,7 @@ ws.onmessage = function(msg) {
             div_card.className = "card_stich card_stich_" + i_epi + " card";
             if (any_parsed.ostich_current[i_epi]) {
                 div_card.className += " card_" + any_parsed.ostich_current[i_epi];
-                if (any_parsed.oepi_animate_card==EPlayerIndex[i_epi]) {
+                if (any_parsed.oepi_animate_card==i_epi) {
                     div_card.style.animationDuration = "250ms";
                 } else {
                     div_card.style.animationDuration = "0s";
@@ -128,7 +148,7 @@ ws.onmessage = function(msg) {
     }
     {
         console.log(any_parsed.oepi_winner_prev);
-        if (any_parsed.oepi_winner_prev) {
+        if (null!==any_parsed.oepi_winner_prev) {
             let div_stich_old = document.getElementById("stich_old");
             div_stich_old.className = "stich_old_" + any_parsed.oepi_winner_prev;
         }
@@ -140,7 +160,7 @@ ws.onmessage = function(msg) {
         for (i_epi = 0; i_epi<4; i_epi++) {
             let div_player = document.getElementById("playerpanel_player_" + i_epi);
             div_player.textContent = any_parsed.mapepistr[i_epi];
-            if (any_parsed.oepi_timeout===EPlayerIndex[i_epi]) {
+            if (any_parsed.oepi_timeout===i_epi) {
                 div_player.className = "playerpanel_active";
             } else {
                 div_player.className = "";
@@ -150,7 +170,7 @@ ws.onmessage = function(msg) {
     {
         console.log(any_parsed.otplepistr_rules);
         if (any_parsed.otplepistr_rules) {
-            let div_player = document.getElementById("playerpanel_player_" + EPlayerIndex[any_parsed.otplepistr_rules[0]]);
+            let div_player = document.getElementById("playerpanel_player_" + any_parsed.otplepistr_rules[0]);
             div_player.textContent += ": " + any_parsed.otplepistr_rules[1];
         }
     }
