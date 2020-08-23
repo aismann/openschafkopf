@@ -51,22 +51,34 @@ ws.onmessage = function(msg) {
     let any_parsed = JSON.parse(msg.data) as SSiteState; // assume that server sends valid SSiteState // TODO? assert/check
     console.log(any_parsed);
     {
-        let div_hand = document.createElement("DIV");
-        div_hand.id = "hand";
-        for (let x of any_parsed.vectplstrstr_caption_message_zugeben) {
-            console.log(x);
-            let div_card = document.createElement("DIV");
-            div_card.className = "card card_hand card_" + x[0];
-            div_card.onclick = function () {
-                console.log(x[1]);
-                ws.send(JSON.stringify(x[1]));
-            };
-            div_hand.appendChild(div_card);
+        let div_hand = document.getElementById("hand");
+        let vecdiv_card = div_hand.getElementsByClassName("card");
+        if (vecdiv_card.length < any_parsed.vectplstrstr_caption_message_zugeben.length) {
+            for (let i = vecdiv_card.length; i<any_parsed.vectplstrstr_caption_message_zugeben.length; i++) {
+                let div_card = document.createElement("DIV");
+                div_card.className = "card card_hand";
+                div_hand.appendChild(div_card);
+            }
+        } else if (vecdiv_card.length > any_parsed.vectplstrstr_caption_message_zugeben.length) {
+            for (let i = any_parsed.vectplstrstr_caption_message_zugeben.length; i<vecdiv_card.length; i++) {
+                div_hand.children[0].remove();
+            }
         }
-        let div_hand_old = document.getElementById("hand");
-        console.log(div_hand_old);
-        console.log(div_hand_old.parentNode);
-        div_hand_old.parentNode.replaceChild(div_hand, div_hand_old);
+        //assert_eq(vecdiv_card.length > any_parsed.vectplstrstr_caption_message_zugeben.length);
+        for (let i=0; i<vecdiv_card.length; i++) {
+            let tplcardstr = any_parsed.vectplstrstr_caption_message_zugeben[i];
+            let str_class = "card card_hand card_" + tplcardstr[0];
+            let div_card = div_hand.children[i];
+            if (div_card.className !== str_class) {
+                // TODO uncheck
+            }
+            div_card.className = str_class;
+            (<HTMLElement>div_card).onclick = function () {
+                // TODO if (!player is active) { check } else
+                console.log(tplcardstr[1]);
+                ws.send(JSON.stringify(tplcardstr[1]));
+            };
+        }
     }
     let div_askpanel = document.getElementById("askpanel");
     let oask = getAsk(any_parsed.msg);
