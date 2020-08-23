@@ -42,6 +42,12 @@ class SSiteState {
     readonly oepi_timeout: null | EPlayerIndex;
 }
 
+function assert(b) {
+    if (!b) {
+        throw {};
+    }
+}
+
 let str_player_name = prompt("Name:");
 let ws = new WebSocket("ws://localhost:8080");
 ws.onopen = function(event) {
@@ -67,12 +73,13 @@ ws.onmessage = function(msg) {
         //assert_eq(vecdiv_card.length > any_parsed.vectplstrstr_caption_message_zugeben.length);
         for (let i=0; i<vecdiv_card.length; i++) {
             let tplcardstr = any_parsed.vectplstrstr_caption_message_zugeben[i];
-            let str_class = "card card_hand card_" + tplcardstr[0];
+            let vecstr_class = ["card", "card_hand", "card_" + tplcardstr[0]];
             let div_card = div_hand.children[i];
-            if (div_card.className !== str_class) {
-                // TODO uncheck
+            assert(div_card.classList.contains(vecstr_class[0]));
+            assert(div_card.classList.contains(vecstr_class[1]));
+            if (!div_card.classList.contains(vecstr_class[2])) {
+                div_card.className = vecstr_class.join(" ");
             }
-            div_card.className = str_class;
             (<HTMLElement>div_card).onclick = function () {
                 // TODO if (!player is active) { check } else
                 console.log(tplcardstr[1]);

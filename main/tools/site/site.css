@@ -93,6 +93,9 @@
   max-width: 10%;
   top: 0;
 }
+.card_checked {
+    background-position: top;
+}
 #hand {
   position: absolute;
   bottom: 0;
