@@ -50,7 +50,7 @@ ws.onopen = function(event) {
 ws.onmessage = function(msg) {
     let any_parsed = JSON.parse(msg.data) as SSiteState; // assume that server sends valid SSiteState // TODO? assert/check
     console.log(any_parsed);
-    if (Array.isArray(any_parsed.vectplstrstr_caption_message_zugeben)) {
+    {
         let div_hand = document.createElement("DIV");
         div_hand.id = "hand";
         for (let x of any_parsed.vectplstrstr_caption_message_zugeben) {
