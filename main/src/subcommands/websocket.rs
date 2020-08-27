@@ -168,7 +168,7 @@ impl SPeers {
                 static_ruleset(),
                 self.1.n_stock,
             )));
-            self.send_msg(
+            self.on_incoming_message(
                 self_mutex,
                 /*oepi*/None,
                 /*ogamephaseaction*/None,
@@ -287,8 +287,8 @@ impl SPeers0 {
 }
 
 impl SPeers {
-    fn send_msg(&mut self, /*TODO avoid this parameter*/self_mutex: Arc<Mutex<Self>>, oepi: Option<EPlayerIndex>, ogamephaseaction: Option<VGamePhaseAction>) {
-        println!("send_msg({:?}, {:?})", oepi, ogamephaseaction);
+    fn on_incoming_message(&mut self, /*TODO avoid this parameter*/self_mutex: Arc<Mutex<Self>>, oepi: Option<EPlayerIndex>, ogamephaseaction: Option<VGamePhaseAction>) {
+        println!("on_incoming_message({:?}, {:?})", oepi, ogamephaseaction);
         if self.1.ogamephase.is_some() {
             if let Some(epi) = oepi {
                 fn handle_err<T, E: std::fmt::Display>(res: Result<T, E>) {
@@ -729,7 +729,7 @@ impl Future for STimerFuture {
             let peers_mutex = self.peers.clone();
             let mut peers = debug_verify!(self.peers.lock()).unwrap();
             if let Some(timeoutcmd) = peers.0.mapepiopeer[self.epi].otimeoutcmd.take() {
-                peers.send_msg(peers_mutex, Some(self.epi), Some(timeoutcmd.gamephaseaction));
+                peers.on_incoming_message(peers_mutex, Some(self.epi), Some(timeoutcmd.gamephaseaction));
             }
             Poll::Ready(())
         } else {
@@ -791,7 +791,7 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
             );
             // TODO we should probably have only one single enum representing all possible incoming msgs
             match serde_json::from_str(str_msg) {
-                Ok(gamephaseaction) => peers.send_msg(peers_mutex.clone(), oepi, Some(gamephaseaction)),
+                Ok(gamephaseaction) => peers.on_incoming_message(peers_mutex.clone(), oepi, Some(gamephaseaction)),
                 Err(_) => {
                     match serde_json::from_str::<SPlayerLogin>(str_msg) {
                         Ok(playerlogin) => if let Some(ref epi)=oepi {
