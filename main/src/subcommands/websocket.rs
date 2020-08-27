@@ -383,12 +383,16 @@ impl SPeers {
                     )
                     // TODO should we clear timeouts?
                 };
+                fn simple_transition<GamePhase: TGamePhase>(
+                    phase: GamePhase,
+                    fn_ok: impl FnOnce(GamePhase::Finish) -> VGamePhase,
+                    fn_err: impl FnOnce(GamePhase) -> VGamePhase,
+                ) -> Option<VGamePhase> {
+                    Some(phase.finish().map_or_else(fn_err, fn_ok))
+                }
                 if let Some(gamephase) = self.1.ogamephase.take() {
                     self.1.ogamephase = match gamephase {
-                        DealCards(dealcards) => Some(match dealcards.finish() {
-                            Ok(gamepreparations) => GamePreparations(gamepreparations),
-                            Err(dealcards) => DealCards(dealcards),
-                        }),
+                        DealCards(dealcards) => simple_transition(dealcards, GamePreparations, DealCards),
                         GamePreparations(gamepreparations) => match gamepreparations.finish() {
                             Ok(VGamePreparationsFinish::DetermineRules(determinerules)) => Some(DetermineRules(determinerules)),
                             Ok(VGamePreparationsFinish::DirectGame(game)) => Some(Game(game)),
@@ -403,14 +407,8 @@ impl SPeers {
                             },
                             Err(gamepreparations) => Some(GamePreparations(gamepreparations)),
                         }
-                        DetermineRules(determinerules) => Some(match determinerules.finish() {
-                            Ok(game) => Game(game),
-                            Err(determinerules) => DetermineRules(determinerules),
-                        }),
-                        Game(game) => Some(match game.finish() {
-                            Ok(gameresult) => GameResult(gameresult),
-                            Err(game) => Game(game),
-                        }),
+                        DetermineRules(determinerules) => simple_transition(determinerules, Game, DetermineRules),
+                        Game(game) => simple_transition(game, GameResult, Game),
                         GameResult(gameresult) => match gameresult.finish() {
                             Ok(gameresult) | Err(gameresult) => {
                                 for epi in EPlayerIndex::values() {
