@@ -618,16 +618,15 @@ impl SPeers {
                                 Some(game.rules.as_ref()),
                                 |epi| game.ahand[epi].cards().to_vec(),
                                 |epi, otimeoutcmd| {
-                                    let mut vecmessage = Vec::new();
-                                    if vecepi_stoss.contains(&epi) {
-                                        vecmessage.push(("Stoss".into(), VGamePhaseAction::Game(VGameAction::Stoss)));
-                                    }
+                                    let ostrgamephaseaction = if_then_some!(vecepi_stoss.contains(&epi),
+                                        ("Stoss".into(), VGamePhaseAction::Game(VGameAction::Stoss))
+                                    );
                                     if epi_card==epi {
                                         ask_with_timeout(
                                             otimeoutcmd,
                                             epi_card,
                                             "".into(),
-                                            vecmessage.into_iter(),
+                                            ostrgamephaseaction.into_iter(),
                                             self_mutex.clone(),
                                             VGamePhaseAction::Game(VGameAction::Zugeben(
                                                 *debug_verify!(game.rules.all_allowed_cards(
@@ -636,12 +635,12 @@ impl SPeers {
                                                 ).choose(&mut rand::thread_rng())).unwrap()
                                             )),
                                         )
-                                    } else if vecmessage.is_empty() {
+                                    } else if ostrgamephaseaction.is_none() {
                                         VMessage::Info(format!("Asking {:?} for card", epi_card))
                                     } else {
                                         VMessage::Ask{
                                             str_question: "".into(),
-                                            vecstrgamephaseaction: vecmessage,
+                                            vecstrgamephaseaction: ostrgamephaseaction.into_iter().collect(),
                                         }
                                     }
                                 },
