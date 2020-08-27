@@ -7,7 +7,7 @@ use std::{
 use crate::util::*;
 use crate::game::*;
 use crate::rules::*;
-use crate::rules::ruleset::{SRuleSet, allowed_rules};
+use crate::rules::ruleset::{SRuleGroup, SRuleSet, allowed_rules};
 
 use futures::prelude::*;
 use futures::{
@@ -50,6 +50,15 @@ type VGamePhaseActivePlayerInfo<'a> = VGamePhaseGeneric<
     (&'a SGameResult, <SGameResult as TGamePhase>::ActivePlayerInfo),
 >;
 type SActivelyPlayableRulesIdentifier = String;
+fn find_rules_by_id(slcrulegroup: &[SRuleGroup], hand: SFullHand, orulesid: &Option<SActivelyPlayableRulesIdentifier>) -> Result<Option<Box<dyn TActivelyPlayableRules>>, ()> {
+    allowed_rules(slcrulegroup, hand)
+        .find(|orules|
+            &orules.map(TActivelyPlayableRules::to_string)==orulesid
+        )
+        .map(|orules| orules.map(TActivelyPlayableRulesBoxClone::box_clone)) // TODO box_clone needed?
+        .ok_or(())
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 enum VGameAction {
     Stoss,
@@ -305,34 +314,23 @@ impl SPeers {
                                 handle_err(dealcards.announce_doubling(epi, b_doubling));
                             },
                             (VGamePhase::GamePreparations(ref mut gamepreparations), VGamePhaseAction::GamePreparations(ref orulesid)) => {
-                                if let Some(orules) = {
-                                    let oorules = allowed_rules(
-                                        &gamepreparations.ruleset.avecrulegroup[epi],
-                                        gamepreparations.fullhand(epi),
-                                    )
-                                        .find(|orules|
-                                            &orules.map(TActivelyPlayableRules::to_string)==orulesid
-                                        )
-                                        .map(|orules| orules.map(TActivelyPlayableRulesBoxClone::box_clone));
-                                    oorules.clone() // TODO needed?
-                                } {
+                                if let Ok(orules) = find_rules_by_id(
+                                    &gamepreparations.ruleset.avecrulegroup[epi],
+                                    gamepreparations.fullhand(epi),
+                                    orulesid
+                                ) {
                                     handle_err(gamepreparations.announce_game(epi, orules));
                                 }
                             },
                             (VGamePhase::DetermineRules(ref mut determinerules), VGamePhaseAction::DetermineRules(ref orulesid)) => {
                                 if let Some((_epi_active, vecrulegroup)) = determinerules.which_player_can_do_something() {
-                                    if let Some(orules) = {
-                                        let oorules = allowed_rules(
-                                            &vecrulegroup,
-                                            determinerules.fullhand(epi),
-                                        )
-                                            .find(|orules|
-                                                &orules.map(TActivelyPlayableRules::to_string)==orulesid
-                                            );
-                                        oorules.clone() // TODO clone needed?
-                                    } {
+                                    if let Ok(orules) = find_rules_by_id(
+                                        &vecrulegroup,
+                                        determinerules.fullhand(epi),
+                                        orulesid
+                                    ) {
                                         handle_err(if let Some(rules) = orules {
-                                            determinerules.announce_game(epi, TActivelyPlayableRulesBoxClone::box_clone(rules))
+                                            determinerules.announce_game(epi, rules)
                                         } else {
                                             determinerules.resign(epi)
                                         });
