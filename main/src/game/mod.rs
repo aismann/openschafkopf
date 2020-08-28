@@ -162,6 +162,7 @@ impl TGamePhase for SGamePreparations {
                     VGamePreparationsFinish::Stock(SGameResult{
                         mapepib_confirmed: EPlayerIndex::map_from_fn(|_epi| false),
                         an_payout: EPlayerIndex::map_from_fn(|_epi| -n_stock),
+                        stockorgame: VStockOrT::Stock(()),
                     })
                 }
             }
@@ -463,7 +464,7 @@ impl TGamePhase for SGame {
                 stoss_and_doublings(&self.vecstoss, &self.doublings),
                 self.n_stock,
             ),
-            game: self,
+            stockorgame: VStockOrT::OrT(self),
         }
     }
 }
@@ -552,7 +553,7 @@ pub struct SGameResult {
     mapepib_confirmed: EnumMap<EPlayerIndex, bool>, // TODO? enumset
     // TODO store all information about finished game
     pub an_payout : EnumMap<EPlayerIndex, isize>,
-    pub game: SGame,
+    pub stockorgame: VStockOrT<(), SGame>,
 }
 
 impl TGamePhase for SGameResult { // "absorbing state"

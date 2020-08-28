@@ -7,7 +7,7 @@ use std::{
 use crate::util::*;
 use crate::game::*;
 use crate::rules::*;
-use crate::rules::ruleset::{SRuleGroup, SRuleSet, allowed_rules};
+use crate::rules::ruleset::{SRuleGroup, SRuleSet, VStockOrT, allowed_rules};
 
 use futures::prelude::*;
 use futures::{
@@ -649,14 +649,22 @@ impl SPeers {
                             );
                         },
                         GameResult((gameresult, mapepib_confirmed)) => {
-                            let slcstich = gameresult.game.stichseq.completed_stichs();
+                            let oslcstich = if let VStockOrT::OrT(ref game) = gameresult.stockorgame {
+                                Some(game.stichseq.completed_stichs())
+                            } else {
+                                None
+                            };
                             self.0.for_each(
-                                debug_verify!(slcstich.last()),
-                                debug_verify!(slcstich.split_last())
+                                oslcstich.and_then(|slcstich| debug_verify!(slcstich.last())),
+                                oslcstich.and_then(|slcstich| debug_verify!(slcstich.split_last()))
                                     .and_then(|(_stich_last, slcstich_up_to_last)|
                                         debug_verify!(slcstich_up_to_last.last())
                                     ),
-                                Some(gameresult.game.rules.as_ref()),
+                                if let VStockOrT::OrT(ref game) = gameresult.stockorgame {
+                                    Some(game.rules.as_ref())
+                                } else {
+                                    None
+                                },
                                 |_epi| vec![],
                                 |epi, otimeoutcmd| {
                                     if !mapepib_confirmed[epi] {
