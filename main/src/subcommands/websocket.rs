@@ -59,6 +59,20 @@ fn find_rules_by_id(slcrulegroup: &[SRuleGroup], hand: SFullHand, orulesid: &Opt
         .ok_or(())
 }
 
+fn rules_to_gamephaseaction<'retval, 'rules : 'retval, 'hand : 'retval>(slcrulegroup: &'rules [SRuleGroup], hand: SFullHand<'hand>, fn_gamephaseaction: impl 'static + Clone + Fn(Option<SActivelyPlayableRulesIdentifier>)->VGamePhaseAction) -> impl TClonableIterator<(SActivelyPlayableRulesIdentifier, VGamePhaseAction)> + 'retval {
+    allowed_rules(slcrulegroup, hand)
+        .map(move |orules|
+             (
+                 if let Some(rules) = orules {
+                     rules.to_string()
+                 } else {
+                     "Weiter".to_string()
+                 },
+                 fn_gamephaseaction(orules.map(TActivelyPlayableRules::to_string)),
+             )
+        )
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 enum VGameAction {
     Stoss,
@@ -498,20 +512,11 @@ impl SPeers {
                                 |epi| gamepreparations.fullhand(epi).get().cards().to_vec(),
                                 |epi, otimeoutcmd| {
                                     if epi_announce_game==epi {
-                                        let itgamephaseaction_rules = allowed_rules(
+                                        let itgamephaseaction_rules = rules_to_gamephaseaction(
                                             &gamepreparations.ruleset.avecrulegroup[epi_announce_game],
                                             gamepreparations.fullhand(epi_announce_game),
-                                        )
-                                            .map(|orules|
-                                                (
-                                                    if let Some(rules) = orules {
-                                                        rules.to_string()
-                                                    } else {
-                                                        "Weiter".to_string()
-                                                    },
-                                                    VGamePhaseAction::GamePreparations(orules.map(TActivelyPlayableRules::to_string)),
-                                                )
-                                            );
+                                            VGamePhaseAction::GamePreparations,
+                                        );
                                         let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().1.clone();
                                         ask_with_timeout(
                                             otimeoutcmd,
@@ -575,20 +580,11 @@ impl SPeers {
                                 |epi| determinerules.fullhand(epi).get().cards().to_vec(),
                                 |epi, otimeoutcmd| {
                                     if epi_determine==epi {
-                                        let itgamephaseaction_rules = allowed_rules(
+                                        let itgamephaseaction_rules = rules_to_gamephaseaction(
                                             &vecrulegroup,
                                             determinerules.fullhand(epi_determine),
-                                        )
-                                            .map(|orules|
-                                                (
-                                                    if let Some(rules) = orules {
-                                                        rules.to_string()
-                                                    } else {
-                                                        "Weiter".to_string()
-                                                    },
-                                                    VGamePhaseAction::DetermineRules(orules.map(TActivelyPlayableRules::to_string)),
-                                                )
-                                            );
+                                            VGamePhaseAction::DetermineRules,
+                                        );
                                         let gamephaseaction_rules_default = debug_verify!(itgamephaseaction_rules.clone().next()).unwrap().1.clone();
                                         ask_with_timeout(
                                             otimeoutcmd,
