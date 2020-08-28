@@ -635,13 +635,13 @@ impl SPeers {
                                                 ).choose(&mut rand::thread_rng())).unwrap()
                                             )),
                                         )
-                                    } else if ostrgamephaseaction.is_none() {
-                                        VMessage::Info(format!("Asking {:?} for card", epi_card))
-                                    } else {
+                                    } else if let Some(strgamephaseaction) = ostrgamephaseaction {
                                         VMessage::Ask{
                                             str_question: "".into(),
-                                            vecstrgamephaseaction: ostrgamephaseaction.into_iter().collect(),
+                                            vecstrgamephaseaction: vec![strgamephaseaction],
                                         }
+                                    } else {
+                                        VMessage::Info(format!("Asking {:?} for card", epi_card))
                                     }
                                 },
                                 |_peer| VMessage::Info(format!("Asking {:?} for card", epi_card)),
