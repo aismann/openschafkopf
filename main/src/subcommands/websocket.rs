@@ -649,22 +649,18 @@ impl SPeers {
                             );
                         },
                         GameResult((gameresult, mapepib_confirmed)) => {
-                            let oslcstich = if let VStockOrT::OrT(ref game) = gameresult.stockorgame {
-                                Some(game.stichseq.completed_stichs())
-                            } else {
-                                None
-                            };
+                            let oslcstich = if_then_some!(let VStockOrT::OrT(ref game) = gameresult.stockorgame,
+                                game.stichseq.completed_stichs()
+                            );
                             self.0.for_each(
                                 oslcstich.and_then(|slcstich| debug_verify!(slcstich.last())),
                                 oslcstich.and_then(|slcstich| debug_verify!(slcstich.split_last()))
                                     .and_then(|(_stich_last, slcstich_up_to_last)|
                                         debug_verify!(slcstich_up_to_last.last())
                                     ),
-                                if let VStockOrT::OrT(ref game) = gameresult.stockorgame {
-                                    Some(game.rules.as_ref())
-                                } else {
-                                    None
-                                },
+                                if_then_some!(let VStockOrT::OrT(ref game) = gameresult.stockorgame,
+                                    game.rules.as_ref()
+                                ),
                                 |_epi| vec![],
                                 |epi, otimeoutcmd| {
                                     if !mapepib_confirmed[epi] {
