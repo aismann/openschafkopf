@@ -424,21 +424,16 @@ impl SPeers {
                         DetermineRules(determinerules) => simple_transition(determinerules, Game, DetermineRules),
                         Game(game) => simple_transition(game, GameResult, Game),
                         GameResult(gameresult) => match gameresult.finish() {
-                            Ok(gameresult) | Err(gameresult) => {
-                                for epi in EPlayerIndex::values() {
-                                    if let Some(ref mut peer) = self.0.mapepiopeer[epi].opeer {
-                                        peer.n_money += gameresult.an_payout[epi];
+                            Ok(gameresult) => {
+                                let mapepiopeer = &mut self.0.mapepiopeer;
+                                gameresult.apply_payout(&mut self.1.n_stock, |epi, n_payout| {
+                                    if let Some(ref mut peer) = mapepiopeer[epi].opeer {
+                                        peer.n_money += n_payout;
                                     }
-                                }
-                                let n_pay_into_stock = -gameresult.an_payout.iter().sum::<isize>();
-                                assert!(
-                                    n_pay_into_stock >= 0 // either pay into stock...
-                                    || n_pay_into_stock == -self.1.n_stock // ... or exactly empty it (assume that this is always possible)
-                                );
-                                self.1.n_stock += n_pay_into_stock;
-                                assert!(0 <= self.1.n_stock);
+                                });
                                 next_game(self)
                             },
+                            Err(gameresult) => Some(GameResult(gameresult)),
                         },
                     };
                 }
