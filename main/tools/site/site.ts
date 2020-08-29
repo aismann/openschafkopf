@@ -121,8 +121,7 @@ ws.onmessage = function(msg) {
         console.log("Most recent card: " + any_parsed.oepi_animate_card);
         let div_stich_new = document.createElement("DIV");
         div_stich_new.id = "stich";
-        let i_epi = 0;
-        for (i_epi = 0; i_epi<4; i_epi++) {
+        for (let i_epi = 0; i_epi<4; i_epi++) {
             let div_card = document.createElement("DIV");
             div_card.className = "card_stich card_stich_" + i_epi + " card";
             if (any_parsed.ostich_current[i_epi]) {
@@ -142,8 +141,7 @@ ws.onmessage = function(msg) {
         console.log(any_parsed.ostich_prev);
         let div_stich_new = document.createElement("DIV");
         div_stich_new.id = "stich_old";
-        let i_epi = 0;
-        for (i_epi = 0; i_epi<4; i_epi++) {
+        for (let i_epi = 0; i_epi<4; i_epi++) {
             let div_card = document.createElement("DIV");
             div_card.className = "card_stich card_stich_" + i_epi + " card";
             if (any_parsed.ostich_prev[i_epi]) {
@@ -175,8 +173,7 @@ ws.onmessage = function(msg) {
     {
         console.log(any_parsed.mapepistr);
         console.log(any_parsed.oepi_timeout);
-        let i_epi = 0;
-        for (i_epi = 0; i_epi<4; i_epi++) {
+        for (let i_epi = 0; i_epi<4; i_epi++) {
             let div_player = document.getElementById("playerpanel_player_" + i_epi);
             div_player.textContent = any_parsed.mapepistr[i_epi];
             if (any_parsed.oepi_timeout===i_epi) {
