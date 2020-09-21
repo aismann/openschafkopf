@@ -54,25 +54,25 @@ ws.onopen = function(event) {
     ws.send(JSON.stringify({"str_player_name": str_player_name}));
 };
 ws.onmessage = function(msg) {
-    let any_parsed = JSON.parse(msg.data) as SSiteState; // assume that server sends valid SSiteState // TODO? assert/check
-    console.log(any_parsed);
+    let sitestate = JSON.parse(msg.data) as SSiteState; // assume that server sends valid SSiteState // TODO? assert/check
+    console.log(sitestate);
     {
         let div_hand = document.getElementById("hand");
         let vecdiv_card = div_hand.getElementsByClassName("card");
-        if (vecdiv_card.length < any_parsed.vectplstrstr_caption_message_zugeben.length) {
-            for (let i = vecdiv_card.length; i<any_parsed.vectplstrstr_caption_message_zugeben.length; i++) {
+        if (vecdiv_card.length < sitestate.vectplstrstr_caption_message_zugeben.length) {
+            for (let i = vecdiv_card.length; i<sitestate.vectplstrstr_caption_message_zugeben.length; i++) {
                 let div_card = document.createElement("DIV");
                 div_card.className = "card card_hand";
                 div_hand.appendChild(div_card);
             }
-        } else if (vecdiv_card.length > any_parsed.vectplstrstr_caption_message_zugeben.length) {
-            for (let i = any_parsed.vectplstrstr_caption_message_zugeben.length; i<vecdiv_card.length; i++) {
+        } else if (vecdiv_card.length > sitestate.vectplstrstr_caption_message_zugeben.length) {
+            for (let i = sitestate.vectplstrstr_caption_message_zugeben.length; i<vecdiv_card.length; i++) {
                 div_hand.children[0].remove();
             }
         }
-        //assert_eq(vecdiv_card.length > any_parsed.vectplstrstr_caption_message_zugeben.length);
+        //assert_eq(vecdiv_card.length > sitestate.vectplstrstr_caption_message_zugeben.length);
         for (let i=0; i<vecdiv_card.length; i++) {
-            let tplcardstr = any_parsed.vectplstrstr_caption_message_zugeben[i];
+            let tplcardstr = sitestate.vectplstrstr_caption_message_zugeben[i];
             let vecstr_class = ["card", "card_hand", "card_" + tplcardstr[0]];
             let div_card = div_hand.children[i];
             assert(div_card.classList.contains(vecstr_class[0]));
@@ -88,7 +88,7 @@ ws.onmessage = function(msg) {
         }
     }
     let div_askpanel = document.getElementById("askpanel");
-    let oask = getAsk(any_parsed.msg);
+    let oask = getAsk(sitestate.msg);
     if (oask) {
         console.log("ASK: " + oask.vecstrgamephaseaction[0]);
     }
@@ -117,16 +117,16 @@ ws.onmessage = function(msg) {
         div_askpanel.hidden = true;
     }
     {
-        console.log(any_parsed.ostich_current);
-        console.log("Most recent card: " + any_parsed.oepi_animate_card);
+        console.log(sitestate.ostich_current);
+        console.log("Most recent card: " + sitestate.oepi_animate_card);
         let div_stich_new = document.createElement("DIV");
         div_stich_new.id = "stich";
         for (let i_epi = 0; i_epi<4; i_epi++) {
             let div_card = document.createElement("DIV");
             div_card.className = "card_stich card_stich_" + i_epi + " card";
-            if (any_parsed.ostich_current[i_epi]) {
-                div_card.className += " card_" + any_parsed.ostich_current[i_epi];
-                if (any_parsed.oepi_animate_card==i_epi) {
+            if (sitestate.ostich_current[i_epi]) {
+                div_card.className += " card_" + sitestate.ostich_current[i_epi];
+                if (sitestate.oepi_animate_card==i_epi) {
                     div_card.style.animationDuration = "250ms";
                 } else {
                     div_card.style.animationDuration = "0s";
@@ -138,21 +138,21 @@ ws.onmessage = function(msg) {
         div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
     }
     {
-        console.log(any_parsed.ostich_prev);
+        console.log(sitestate.ostich_prev);
         let div_stich_new = document.createElement("DIV");
         div_stich_new.id = "stich_old";
         for (let i_epi = 0; i_epi<4; i_epi++) {
             let div_card = document.createElement("DIV");
             div_card.className = "card_stich card_stich_" + i_epi + " card";
-            if (any_parsed.ostich_prev[i_epi]) {
-                div_card.className += " card_" + any_parsed.ostich_prev[i_epi];
+            if (sitestate.ostich_prev[i_epi]) {
+                div_card.className += " card_" + sitestate.ostich_prev[i_epi];
             }
             if (
-                any_parsed.ostich_current
-                && !any_parsed.ostich_current[0]
-                && !any_parsed.ostich_current[1]
-                && !any_parsed.ostich_current[2]
-                && !any_parsed.ostich_current[3]
+                sitestate.ostich_current
+                && !sitestate.ostich_current[0]
+                && !sitestate.ostich_current[1]
+                && !sitestate.ostich_current[2]
+                && !sitestate.ostich_current[3]
             ) {
                 div_stich_new.style.animationDuration = "250ms";
             } else {
@@ -164,19 +164,19 @@ ws.onmessage = function(msg) {
         div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
     }
     {
-        console.log(any_parsed.oepi_winner_prev);
-        if (null!==any_parsed.oepi_winner_prev) {
+        console.log(sitestate.oepi_winner_prev);
+        if (null!==sitestate.oepi_winner_prev) {
             let div_stich_old = document.getElementById("stich_old");
-            div_stich_old.className = "stich_old_" + any_parsed.oepi_winner_prev;
+            div_stich_old.className = "stich_old_" + sitestate.oepi_winner_prev;
         }
     }
     {
-        console.log(any_parsed.mapepistr);
-        console.log(any_parsed.oepi_timeout);
+        console.log(sitestate.mapepistr);
+        console.log(sitestate.oepi_timeout);
         for (let i_epi = 0; i_epi<4; i_epi++) {
             let div_player = document.getElementById("playerpanel_player_" + i_epi);
-            div_player.textContent = any_parsed.mapepistr[i_epi];
-            if (any_parsed.oepi_timeout===i_epi) {
+            div_player.textContent = sitestate.mapepistr[i_epi];
+            if (sitestate.oepi_timeout===i_epi) {
                 div_player.className = "playerpanel_active";
             } else {
                 div_player.className = "";
@@ -184,10 +184,10 @@ ws.onmessage = function(msg) {
         }
     }
     {
-        console.log(any_parsed.otplepistr_rules);
-        if (any_parsed.otplepistr_rules) {
-            let div_player = document.getElementById("playerpanel_player_" + any_parsed.otplepistr_rules[0]);
-            div_player.textContent += ": " + any_parsed.otplepistr_rules[1];
+        console.log(sitestate.otplepistr_rules);
+        if (sitestate.otplepistr_rules) {
+            let div_player = document.getElementById("playerpanel_player_" + sitestate.otplepistr_rules[0]);
+            div_player.textContent += ": " + sitestate.otplepistr_rules[1];
         }
     }
 };
