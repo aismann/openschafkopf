@@ -85,9 +85,10 @@ type VGamePhaseAction = VGamePhaseGeneric<
     /*Game*/VGameAction,
     /*GameResult*/(), // TODO? should players be able to "accept" result?
 >;
-#[derive(Deserialize)]
-struct SPlayerLogin {
-    str_player_name: String,
+#[derive(Serialize, Deserialize)]
+enum VPlayerCmd {
+    GamePhaseAction(VGamePhaseAction),
+    PlayerLogin{str_player_name: String},
 }
 
 impl VGamePhase {
@@ -782,20 +783,19 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
                 str_msg,
             );
             // TODO we should probably have only one single enum representing all possible incoming msgs
+            use VPlayerCmd::*;
             match serde_json::from_str(str_msg) {
-                Ok(gamephaseaction) => peers.on_incoming_message(peers_mutex.clone(), oepi, Some(gamephaseaction)),
-                Err(_) => {
-                    match serde_json::from_str::<SPlayerLogin>(str_msg) {
-                        Ok(playerlogin) => if let Some(ref epi)=oepi {
-                            if let Some(ref mut peer) = peers.0.mapepiopeer[*epi].opeer {
-                                peer.str_name = playerlogin.str_player_name;
-                            }
-                        } else if let Some(ref mut peer) = peers.0.vecpeer.iter_mut().find(|peer| peer.sockaddr==sockaddr) {
-                            peer.str_name = playerlogin.str_player_name;
-                        },
-                        Err(e) => println!("Error: {}", e),
+                Ok(GamePhaseAction(gamephaseaction)) => peers.on_incoming_message(peers_mutex.clone(), oepi, Some(gamephaseaction)),
+                Ok(PlayerLogin{str_player_name}) => {
+                    if let Some(ref epi)=oepi {
+                        if let Some(ref mut peer) = peers.0.mapepiopeer[*epi].opeer {
+                            peer.str_name = str_player_name;
+                        }
+                    } else if let Some(ref mut peer) = peers.0.vecpeer.iter_mut().find(|peer| peer.sockaddr==sockaddr) {
+                        peer.str_name = str_player_name;
                     }
                 },
+                Err(e) => println!("Error: {}", e),
             }
             future::ok(())
         });

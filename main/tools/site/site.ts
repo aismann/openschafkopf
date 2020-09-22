@@ -51,7 +51,7 @@ function assert(b) {
 let str_player_name = prompt("Name:");
 let ws = new WebSocket("ws://localhost:8080");
 ws.onopen = function(event) {
-    ws.send(JSON.stringify({"str_player_name": str_player_name}));
+    ws.send(JSON.stringify({"PlayerLogin": {"str_player_name": str_player_name}}));
 };
 ws.onmessage = function(msg) {
     let sitestate = JSON.parse(msg.data) as SSiteState; // assume that server sends valid SSiteState // TODO? assert/check
@@ -83,7 +83,7 @@ ws.onmessage = function(msg) {
             (<HTMLElement>div_card).onclick = function () {
                 // TODO if (!player is active) { check } else
                 console.log(tplcardstr[1]);
-                ws.send(JSON.stringify(tplcardstr[1]));
+                ws.send(JSON.stringify({"GamePhaseAction": tplcardstr[1]}));
             };
         }
     }
@@ -106,7 +106,7 @@ ws.onmessage = function(msg) {
             btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
             btn.onclick = function () {
                 console.log(x[1]);
-                ws.send(JSON.stringify(x[1]));
+                ws.send(JSON.stringify({"GamePhaseAction": x[1]}));
             };
             paragraph_btns.appendChild(btn);
             div_askpanel_new.appendChild(paragraph_btns);
