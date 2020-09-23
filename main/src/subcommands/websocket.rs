@@ -145,7 +145,7 @@ struct SActivePeer {
 }
 
 #[derive(Default, Debug)]
-struct SPeers0 {
+struct SPlayers {
     mapepiopeer: EnumMap<EPlayerIndex, SActivePeer>, // active
     vecpeer: Vec<SPeer>, // inactive
 }
@@ -156,7 +156,7 @@ struct SPeers1 {
 }
 #[derive(Default, Debug)]
 struct STable{
-    players: SPeers0,
+    players: SPlayers,
     gamestuff: SPeers1,
 }
 
@@ -205,7 +205,7 @@ impl STable {
     }
 }
 
-impl SPeers0 {
+impl SPlayers {
     fn for_each(
         &mut self,
         ostich_current: Option<&SStich>,
