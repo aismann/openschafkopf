@@ -155,9 +155,12 @@ struct SPeers1 {
     n_stock: isize, // TODO would that be better within VGamePhase?
 }
 #[derive(Default, Debug)]
-struct SPeers(SPeers0, SPeers1);
+struct STable(
+    SPeers0,
+    SPeers1,
+);
 
-impl SPeers {
+impl STable {
     fn insert(&mut self, self_mutex: Arc<Mutex<Self>>, peer: SPeer) {
         match self.0.mapepiopeer
             .iter_mut()
@@ -301,7 +304,7 @@ impl SPeers0 {
     }
 }
 
-impl SPeers {
+impl STable {
     fn on_incoming_message(&mut self, /*TODO avoid this parameter*/self_mutex: Arc<Mutex<Self>>, oepi: Option<EPlayerIndex>, ogamephaseaction: Option<VGamePhaseAction>) {
         println!("on_incoming_message({:?}, {:?})", oepi, ogamephaseaction);
         if self.1.ogamephase.is_some() {
@@ -369,7 +372,7 @@ impl SPeers {
             }
             while self.1.ogamephase.as_ref().map_or(false, |gamephase| gamephase.which_player_can_do_something().is_none()) {
                 use VGamePhaseGeneric::*;
-                fn next_game(peers: &mut SPeers) -> Option<VGamePhase> {
+                fn next_game(table: &mut STable) -> Option<VGamePhase> {
                     /*           E2
                      * E1                      E3
                      *    E0 SN SN-1 ... S1 S0
@@ -379,22 +382,22 @@ impl SPeers {
                      * E2 E3 S0 S1 [S2 ... SN E0 E1]
                      */
                     // Players: E0 E1 E2 E3 [S0 S1 S2 ... SN] (S0 is longest waiting inactive player)
-                    peers.0.mapepiopeer.as_raw_mut().rotate_left(1);
+                    table.0.mapepiopeer.as_raw_mut().rotate_left(1);
                     // Players: E1 E2 E3 E0 [S0 S1 S2 ... SN]
-                    if let Some(peer_epi3) = peers.0.mapepiopeer[EPlayerIndex::EPI3].opeer.take() {
-                        peers.0.vecpeer.push(peer_epi3);
+                    if let Some(peer_epi3) = table.0.mapepiopeer[EPlayerIndex::EPI3].opeer.take() {
+                        table.0.vecpeer.push(peer_epi3);
                     }
                     // Players: E1 E2 E3 -- [S0 S1 S2 ... SN E0] (E1, E2, E3 may be None)
                     // Fill up players one after another
-                    assert!(peers.0.mapepiopeer[EPlayerIndex::EPI3].opeer.is_none());
+                    assert!(table.0.mapepiopeer[EPlayerIndex::EPI3].opeer.is_none());
                     for epi in EPlayerIndex::values() {
-                        if peers.0.mapepiopeer[epi].opeer.is_none() && !peers.0.vecpeer.is_empty() {
-                            peers.0.mapepiopeer[epi].opeer = Some(peers.0.vecpeer.remove(0));
+                        if table.0.mapepiopeer[epi].opeer.is_none() && !table.0.vecpeer.is_empty() {
+                            table.0.mapepiopeer[epi].opeer = Some(table.0.vecpeer.remove(0));
                         }
                     }
                     // Players: E1 E2 E3 S0 [S1 S2 ... SN E0] (E1, E2, E3 may be None)
-                    if_then_some!(peers.0.mapepiopeer.iter().all(|activepeer| activepeer.opeer.is_some()),
-                        VGamePhase::DealCards(SDealCards::new(static_ruleset(), peers.1.n_stock))
+                    if_then_some!(table.0.mapepiopeer.iter().all(|activepeer| activepeer.opeer.is_some()),
+                        VGamePhase::DealCards(SDealCards::new(static_ruleset(), table.1.n_stock))
                     )
                     // TODO should we clear timeouts?
                 };
@@ -446,12 +449,12 @@ impl SPeers {
                         epi: EPlayerIndex,
                         str_question: String,
                         itgamephaseaction: impl Iterator<Item=(String, VGamePhaseAction)>,
-                        peers_mutex: Arc<Mutex<SPeers>>,
+                        table_mutex: Arc<Mutex<STable>>,
                         gamephaseaction_timeout: VGamePhaseAction,
                     ) -> VMessage {
                         let (timerfuture, aborthandle) = future::abortable(STimerFuture::new(
                             /*n_secs*/2,
-                            peers_mutex,
+                            table_mutex,
                             epi,
                         ));
                         assert!({
@@ -705,7 +708,7 @@ enum VMessage {
 // timer adapted from https://rust-lang.github.io/async-book/02_execution/03_wakeups.html
 struct STimerFuture {
     state: Arc<Mutex<STimerFutureState>>,
-    peers: Arc<Mutex<SPeers>>,
+    table: Arc<Mutex<STable>>,
     epi: EPlayerIndex,
 }
 
@@ -719,10 +722,10 @@ impl Future for STimerFuture {
     fn poll(self: std::pin::Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut state = self.state.lock().unwrap();
         if state.b_completed {
-            let peers_mutex = self.peers.clone();
-            let mut peers = debug_verify!(self.peers.lock()).unwrap();
-            if let Some(timeoutcmd) = peers.0.mapepiopeer[self.epi].otimeoutcmd.take() {
-                peers.on_incoming_message(peers_mutex, Some(self.epi), Some(timeoutcmd.gamephaseaction));
+            let table_mutex = self.table.clone();
+            let mut table = debug_verify!(self.table.lock()).unwrap();
+            if let Some(timeoutcmd) = table.0.mapepiopeer[self.epi].otimeoutcmd.take() {
+                table.on_incoming_message(table_mutex, Some(self.epi), Some(timeoutcmd.gamephaseaction));
             }
             Poll::Ready(())
         } else {
@@ -733,7 +736,7 @@ impl Future for STimerFuture {
 }
 
 impl STimerFuture {
-    fn new(n_secs: u64, peers: Arc<Mutex<SPeers>>, epi: EPlayerIndex) -> Self {
+    fn new(n_secs: u64, table: Arc<Mutex<STable>>, epi: EPlayerIndex) -> Self {
         let state = Arc::new(Mutex::new(STimerFutureState {
             b_completed: false,
             owaker: None,
@@ -747,18 +750,18 @@ impl STimerFuture {
                 waker.wake()
             }
         });
-        Self {state, peers, epi}
+        Self {state, table, epi}
     }
 }
 
-async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sockaddr: SocketAddr) {
+async fn handle_connection(table: Arc<Mutex<STable>>, tcpstream: TcpStream, sockaddr: SocketAddr) {
     println!("Incoming TCP connection from: {}", sockaddr);
     let wsstream = debug_verify!(async_tungstenite::accept_async(tcpstream).await).unwrap();
     println!("WebSocket connection established: {}", sockaddr);
     // Insert the write part of this peer to the peer map.
     let (txmsg, rxmsg) = unbounded();
-    let peers_mutex = peers.clone();
-    debug_verify!(peers.lock()).unwrap().insert(peers_mutex.clone(), SPeer{
+    let table_mutex = table.clone();
+    debug_verify!(table.lock()).unwrap().insert(table_mutex.clone(), SPeer{
         sockaddr,
         txmsg,
         n_money: 0,
@@ -773,9 +776,9 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
         })
         .try_for_each(|msg| {
             let str_msg = debug_verify!(msg.to_text()).unwrap();
-            let mut peers = debug_verify!(peers.lock()).unwrap();
+            let mut table = debug_verify!(table.lock()).unwrap();
             let oepi = EPlayerIndex::values()
-                .find(|epi| peers.0.mapepiopeer[*epi].opeer.as_ref().map(|peer| peer.sockaddr)==Some(sockaddr));
+                .find(|epi| table.0.mapepiopeer[*epi].opeer.as_ref().map(|peer| peer.sockaddr)==Some(sockaddr));
             println!(
                 "Received a message from {} ({:?}): {}",
                 sockaddr,
@@ -785,13 +788,13 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
             // TODO we should probably have only one single enum representing all possible incoming msgs
             use VPlayerCmd::*;
             match serde_json::from_str(str_msg) {
-                Ok(GamePhaseAction(gamephaseaction)) => peers.on_incoming_message(peers_mutex.clone(), oepi, Some(gamephaseaction)),
+                Ok(GamePhaseAction(gamephaseaction)) => table.on_incoming_message(table_mutex.clone(), oepi, Some(gamephaseaction)),
                 Ok(PlayerLogin{str_player_name}) => {
                     if let Some(ref epi)=oepi {
-                        if let Some(ref mut peer) = peers.0.mapepiopeer[*epi].opeer {
+                        if let Some(ref mut peer) = table.0.mapepiopeer[*epi].opeer {
                             peer.str_name = str_player_name;
                         }
-                    } else if let Some(ref mut peer) = peers.0.vecpeer.iter_mut().find(|peer| peer.sockaddr==sockaddr) {
+                    } else if let Some(ref mut peer) = table.0.vecpeer.iter_mut().find(|peer| peer.sockaddr==sockaddr) {
                         peer.str_name = str_player_name;
                     }
                 },
@@ -803,18 +806,18 @@ async fn handle_connection(peers: Arc<Mutex<SPeers>>, tcpstream: TcpStream, sock
     pin_mut!(broadcast_incoming, receive_from_others); // TODO Is this really needed?
     future::select(broadcast_incoming, receive_from_others).await;
     println!("{} disconnected", &sockaddr);
-    debug_verify!(peers.lock()).unwrap().remove(&sockaddr);
+    debug_verify!(table.lock()).unwrap().remove(&sockaddr);
 }
 
 async fn internal_run() -> Result<(), Error> {
     let str_addr = "127.0.0.1:8080";
-    let peers = Arc::new(Mutex::new(SPeers::default()));
+    let table = Arc::new(Mutex::new(STable::default()));
     // Create the event loop and TCP listener we'll accept connections on.
     let listener = debug_verify!(TcpListener::bind(&str_addr).await).unwrap();
     println!("Listening on: {}", str_addr);
     // Let's spawn the handling of each connection in a separate task.
     while let Ok((tcpstream, sockaddr)) = listener.accept().await {
-        task::spawn(handle_connection(peers.clone(), tcpstream, sockaddr));
+        task::spawn(handle_connection(table.clone(), tcpstream, sockaddr));
     }
     Ok(())
 }
