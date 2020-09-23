@@ -155,18 +155,18 @@ struct SPeers1 {
     n_stock: isize, // TODO would that be better within VGamePhase?
 }
 #[derive(Default, Debug)]
-struct STable(
-    SPeers0,
-    SPeers1,
-);
+struct STable{
+    players: SPeers0,
+    gamestuff: SPeers1,
+}
 
 impl STable {
     fn insert(&mut self, self_mutex: Arc<Mutex<Self>>, peer: SPeer) {
-        match self.0.mapepiopeer
+        match self.players.mapepiopeer
             .iter_mut()
             .find(|opeer| opeer.opeer.is_none())
         {
-            Some(opeer) if self.1.ogamephase.is_none() => {
+            Some(opeer) if self.gamestuff.ogamephase.is_none() => {
                 assert!(opeer.opeer.is_none());
                 *opeer = SActivePeer{
                     opeer: Some(peer),
@@ -174,17 +174,17 @@ impl STable {
                 }
             },
             _ => {
-                self.0.vecpeer.push(peer);
+                self.players.vecpeer.push(peer);
             }
         }
-        if self.1.ogamephase.is_none()
-            && self.0.mapepiopeer
+        if self.gamestuff.ogamephase.is_none()
+            && self.players.mapepiopeer
                 .iter()
                 .all(|opeer| opeer.opeer.is_some())
         {
-            self.1.ogamephase = Some(VGamePhase::DealCards(SDealCards::new(
+            self.gamestuff.ogamephase = Some(VGamePhase::DealCards(SDealCards::new(
                 static_ruleset(),
-                self.1.n_stock,
+                self.gamestuff.n_stock,
             )));
             self.on_incoming_message(
                 self_mutex,
@@ -196,12 +196,12 @@ impl STable {
 
     fn remove(&mut self, sockaddr: &SocketAddr) {
         for epi in EPlayerIndex::values() {
-            if self.0.mapepiopeer[epi].opeer.as_ref().map(|peer| peer.sockaddr)==Some(*sockaddr) {
-                self.0.mapepiopeer[epi].opeer = None;
+            if self.players.mapepiopeer[epi].opeer.as_ref().map(|peer| peer.sockaddr)==Some(*sockaddr) {
+                self.players.mapepiopeer[epi].opeer = None;
                 // TODO should we reset timeout command?
             }
         }
-        self.0.vecpeer.retain(|peer| peer.sockaddr!=*sockaddr);
+        self.players.vecpeer.retain(|peer| peer.sockaddr!=*sockaddr);
     }
 }
 
@@ -307,7 +307,7 @@ impl SPeers0 {
 impl STable {
     fn on_incoming_message(&mut self, /*TODO avoid this parameter*/self_mutex: Arc<Mutex<Self>>, oepi: Option<EPlayerIndex>, ogamephaseaction: Option<VGamePhaseAction>) {
         println!("on_incoming_message({:?}, {:?})", oepi, ogamephaseaction);
-        if self.1.ogamephase.is_some() {
+        if self.gamestuff.ogamephase.is_some() {
             if let Some(epi) = oepi {
                 fn handle_err<T, E: std::fmt::Display>(res: Result<T, E>) {
                     match res {
@@ -317,16 +317,16 @@ impl STable {
                 }
                 if let Some(gamephaseaction) = ogamephaseaction {
                     use std::mem::discriminant;
-                    match self.0.mapepiopeer[epi].otimeoutcmd.as_ref() {
+                    match self.players.mapepiopeer[epi].otimeoutcmd.as_ref() {
                         None => (),
                         Some(timeoutcmd) => {
                             if discriminant(&gamephaseaction)==discriminant(&timeoutcmd.gamephaseaction) {
                                 timeoutcmd.aborthandle.abort();
-                                self.0.mapepiopeer[epi].otimeoutcmd = None;
+                                self.players.mapepiopeer[epi].otimeoutcmd = None;
                             }
                         },
                     }
-                    if let Some(ref mut gamephase) = debug_verify!(self.1.ogamephase.as_mut()) {
+                    if let Some(ref mut gamephase) = debug_verify!(self.gamestuff.ogamephase.as_mut()) {
                         match (gamephase, gamephaseaction) {
                             (VGamePhase::DealCards(ref mut dealcards), VGamePhaseAction::DealCards(b_doubling)) => {
                                 handle_err(dealcards.announce_doubling(epi, b_doubling));
@@ -370,7 +370,7 @@ impl STable {
                     }
                 }
             }
-            while self.1.ogamephase.as_ref().map_or(false, |gamephase| gamephase.which_player_can_do_something().is_none()) {
+            while self.gamestuff.ogamephase.as_ref().map_or(false, |gamephase| gamephase.which_player_can_do_something().is_none()) {
                 use VGamePhaseGeneric::*;
                 fn next_game(table: &mut STable) -> Option<VGamePhase> {
                     /*           E2
@@ -382,22 +382,22 @@ impl STable {
                      * E2 E3 S0 S1 [S2 ... SN E0 E1]
                      */
                     // Players: E0 E1 E2 E3 [S0 S1 S2 ... SN] (S0 is longest waiting inactive player)
-                    table.0.mapepiopeer.as_raw_mut().rotate_left(1);
+                    table.players.mapepiopeer.as_raw_mut().rotate_left(1);
                     // Players: E1 E2 E3 E0 [S0 S1 S2 ... SN]
-                    if let Some(peer_epi3) = table.0.mapepiopeer[EPlayerIndex::EPI3].opeer.take() {
-                        table.0.vecpeer.push(peer_epi3);
+                    if let Some(peer_epi3) = table.players.mapepiopeer[EPlayerIndex::EPI3].opeer.take() {
+                        table.players.vecpeer.push(peer_epi3);
                     }
                     // Players: E1 E2 E3 -- [S0 S1 S2 ... SN E0] (E1, E2, E3 may be None)
                     // Fill up players one after another
-                    assert!(table.0.mapepiopeer[EPlayerIndex::EPI3].opeer.is_none());
+                    assert!(table.players.mapepiopeer[EPlayerIndex::EPI3].opeer.is_none());
                     for epi in EPlayerIndex::values() {
-                        if table.0.mapepiopeer[epi].opeer.is_none() && !table.0.vecpeer.is_empty() {
-                            table.0.mapepiopeer[epi].opeer = Some(table.0.vecpeer.remove(0));
+                        if table.players.mapepiopeer[epi].opeer.is_none() && !table.players.vecpeer.is_empty() {
+                            table.players.mapepiopeer[epi].opeer = Some(table.players.vecpeer.remove(0));
                         }
                     }
                     // Players: E1 E2 E3 S0 [S1 S2 ... SN E0] (E1, E2, E3 may be None)
-                    if_then_some!(table.0.mapepiopeer.iter().all(|activepeer| activepeer.opeer.is_some()),
-                        VGamePhase::DealCards(SDealCards::new(static_ruleset(), table.1.n_stock))
+                    if_then_some!(table.players.mapepiopeer.iter().all(|activepeer| activepeer.opeer.is_some()),
+                        VGamePhase::DealCards(SDealCards::new(static_ruleset(), table.gamestuff.n_stock))
                     )
                     // TODO should we clear timeouts?
                 };
@@ -408,15 +408,15 @@ impl STable {
                 ) -> Option<VGamePhase> {
                     Some(phase.finish().map_or_else(fn_err, fn_ok))
                 }
-                if let Some(gamephase) = self.1.ogamephase.take() {
-                    self.1.ogamephase = match gamephase {
+                if let Some(gamephase) = self.gamestuff.ogamephase.take() {
+                    self.gamestuff.ogamephase = match gamephase {
                         DealCards(dealcards) => simple_transition(dealcards, GamePreparations, DealCards),
                         GamePreparations(gamepreparations) => match gamepreparations.finish() {
                             Ok(VGamePreparationsFinish::DetermineRules(determinerules)) => Some(DetermineRules(determinerules)),
                             Ok(VGamePreparationsFinish::DirectGame(game)) => Some(Game(game)),
                             Ok(VGamePreparationsFinish::Stock(gameresult)) => {
-                                let mapepiopeer = &mut self.0.mapepiopeer;
-                                gameresult.apply_payout(&mut self.1.n_stock, |epi, n_payout| {
+                                let mapepiopeer = &mut self.players.mapepiopeer;
+                                gameresult.apply_payout(&mut self.gamestuff.n_stock, |epi, n_payout| {
                                     if let Some(ref mut peer) = mapepiopeer[epi].opeer {
                                         peer.n_money += n_payout;
                                     }
@@ -429,8 +429,8 @@ impl STable {
                         Game(game) => simple_transition(game, GameResult, Game),
                         GameResult(gameresult) => match gameresult.finish() {
                             Ok(gameresult) => {
-                                let mapepiopeer = &mut self.0.mapepiopeer;
-                                gameresult.apply_payout(&mut self.1.n_stock, |epi, n_payout| {
+                                let mapepiopeer = &mut self.players.mapepiopeer;
+                                gameresult.apply_payout(&mut self.gamestuff.n_stock, |epi, n_payout| {
                                     if let Some(ref mut peer) = mapepiopeer[epi].opeer {
                                         peer.n_money += n_payout;
                                     }
@@ -442,7 +442,7 @@ impl STable {
                     };
                 }
             }
-            if let Some(ref gamephase) = self.1.ogamephase {
+            if let Some(ref gamephase) = self.gamestuff.ogamephase {
                 if let Some(whichplayercandosomething) = verify!(gamephase.which_player_can_do_something()) {
                     fn ask_with_timeout(
                         otimeoutcmd: &mut Option<STimeoutCmd>,
@@ -476,7 +476,7 @@ impl STable {
                     use VGamePhaseGeneric::*;
                     match whichplayercandosomething {
                         DealCards((dealcards, epi_doubling)) => {
-                            self.0.for_each(
+                            self.players.for_each(
                                 None,
                                 None,
                                 None,
@@ -504,7 +504,7 @@ impl STable {
                             );
                         },
                         GamePreparations((gamepreparations, epi_announce_game)) => {
-                            self.0.for_each(
+                            self.players.for_each(
                                 None,
                                 None,
                                 None,
@@ -572,7 +572,7 @@ impl STable {
                             );
                         },
                         DetermineRules((determinerules, (epi_determine, vecrulegroup))) => {
-                            self.0.for_each(
+                            self.players.for_each(
                                 None,
                                 None,
                                 None,
@@ -607,7 +607,7 @@ impl STable {
                             );
                         },
                         Game((game, (epi_card, vecepi_stoss))) => {
-                            self.0.for_each(
+                            self.players.for_each(
                                 Some(game.stichseq.current_stich()),
                                 game.stichseq.completed_stichs().last(),
                                 Some(game.rules.as_ref()),
@@ -647,7 +647,7 @@ impl STable {
                             let oslcstich = if_then_some!(let VStockOrT::OrT(ref game) = gameresult.stockorgame,
                                 game.stichseq.completed_stichs()
                             );
-                            self.0.for_each(
+                            self.players.for_each(
                                 oslcstich.and_then(|slcstich| debug_verify!(slcstich.last())),
                                 oslcstich.and_then(|slcstich| debug_verify!(slcstich.split_last()))
                                     .and_then(|(_stich_last, slcstich_up_to_last)|
@@ -683,7 +683,7 @@ impl STable {
                 }
             }
         } else {
-            self.0.for_each(
+            self.players.for_each(
                 None,
                 None,
                 None,
@@ -724,7 +724,7 @@ impl Future for STimerFuture {
         if state.b_completed {
             let table_mutex = self.table.clone();
             let mut table = debug_verify!(self.table.lock()).unwrap();
-            if let Some(timeoutcmd) = table.0.mapepiopeer[self.epi].otimeoutcmd.take() {
+            if let Some(timeoutcmd) = table.players.mapepiopeer[self.epi].otimeoutcmd.take() {
                 table.on_incoming_message(table_mutex, Some(self.epi), Some(timeoutcmd.gamephaseaction));
             }
             Poll::Ready(())
@@ -778,7 +778,7 @@ async fn handle_connection(table: Arc<Mutex<STable>>, tcpstream: TcpStream, sock
             let str_msg = debug_verify!(msg.to_text()).unwrap();
             let mut table = debug_verify!(table.lock()).unwrap();
             let oepi = EPlayerIndex::values()
-                .find(|epi| table.0.mapepiopeer[*epi].opeer.as_ref().map(|peer| peer.sockaddr)==Some(sockaddr));
+                .find(|epi| table.players.mapepiopeer[*epi].opeer.as_ref().map(|peer| peer.sockaddr)==Some(sockaddr));
             println!(
                 "Received a message from {} ({:?}): {}",
                 sockaddr,
@@ -791,10 +791,10 @@ async fn handle_connection(table: Arc<Mutex<STable>>, tcpstream: TcpStream, sock
                 Ok(GamePhaseAction(gamephaseaction)) => table.on_incoming_message(table_mutex.clone(), oepi, Some(gamephaseaction)),
                 Ok(PlayerLogin{str_player_name}) => {
                     if let Some(ref epi)=oepi {
-                        if let Some(ref mut peer) = table.0.mapepiopeer[*epi].opeer {
+                        if let Some(ref mut peer) = table.players.mapepiopeer[*epi].opeer {
                             peer.str_name = str_player_name;
                         }
-                    } else if let Some(ref mut peer) = table.0.vecpeer.iter_mut().find(|peer| peer.sockaddr==sockaddr) {
+                    } else if let Some(ref mut peer) = table.players.vecpeer.iter_mut().find(|peer| peer.sockaddr==sockaddr) {
                         peer.str_name = str_player_name;
                     }
                 },
