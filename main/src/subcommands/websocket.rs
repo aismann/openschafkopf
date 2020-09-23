@@ -150,14 +150,14 @@ struct SPlayers {
     vecpeer: Vec<SPeer>, // inactive
 }
 #[derive(Default, Debug)]
-struct SPeers1 {
+struct SGameStuff {
     ogamephase: Option<VGamePhase>,
     n_stock: isize, // TODO would that be better within VGamePhase?
 }
 #[derive(Default, Debug)]
 struct STable{
     players: SPlayers,
-    gamestuff: SPeers1,
+    gamestuff: SGameStuff,
 }
 
 impl STable {
