@@ -150,14 +150,10 @@ struct SPlayers {
     vecpeer: Vec<SPeer>, // inactive
 }
 #[derive(Default, Debug)]
-struct SGameStuff {
-    ogamephase: Option<VGamePhase>,
-    n_stock: isize, // TODO would that be better within VGamePhase?
-}
-#[derive(Default, Debug)]
 struct STable{
     players: SPlayers,
-    gamestuff: SGameStuff,
+    ogamephase: Option<VGamePhase>,
+    n_stock: isize, // TODO would that be better within VGamePhase?
 }
 
 impl STable {
@@ -166,7 +162,7 @@ impl STable {
             .iter_mut()
             .find(|opeer| opeer.opeer.is_none())
         {
-            Some(opeer) if self.gamestuff.ogamephase.is_none() => {
+            Some(opeer) if self.ogamephase.is_none() => {
                 assert!(opeer.opeer.is_none());
                 *opeer = SActivePeer{
                     opeer: Some(peer),
@@ -177,14 +173,14 @@ impl STable {
                 self.players.vecpeer.push(peer);
             }
         }
-        if self.gamestuff.ogamephase.is_none()
+        if self.ogamephase.is_none()
             && self.players.mapepiopeer
                 .iter()
                 .all(|opeer| opeer.opeer.is_some())
         {
-            self.gamestuff.ogamephase = Some(VGamePhase::DealCards(SDealCards::new(
+            self.ogamephase = Some(VGamePhase::DealCards(SDealCards::new(
                 static_ruleset(),
-                self.gamestuff.n_stock,
+                self.n_stock,
             )));
             self.on_incoming_message(
                 self_mutex,
@@ -307,7 +303,7 @@ impl SPlayers {
 impl STable {
     fn on_incoming_message(&mut self, /*TODO avoid this parameter*/self_mutex: Arc<Mutex<Self>>, oepi: Option<EPlayerIndex>, ogamephaseaction: Option<VGamePhaseAction>) {
         println!("on_incoming_message({:?}, {:?})", oepi, ogamephaseaction);
-        if self.gamestuff.ogamephase.is_some() {
+        if self.ogamephase.is_some() {
             if let Some(epi) = oepi {
                 fn handle_err<T, E: std::fmt::Display>(res: Result<T, E>) {
                     match res {
@@ -326,7 +322,7 @@ impl STable {
                             }
                         },
                     }
-                    if let Some(ref mut gamephase) = debug_verify!(self.gamestuff.ogamephase.as_mut()) {
+                    if let Some(ref mut gamephase) = debug_verify!(self.ogamephase.as_mut()) {
                         match (gamephase, gamephaseaction) {
                             (VGamePhase::DealCards(ref mut dealcards), VGamePhaseAction::DealCards(b_doubling)) => {
                                 handle_err(dealcards.announce_doubling(epi, b_doubling));
@@ -370,7 +366,7 @@ impl STable {
                     }
                 }
             }
-            while self.gamestuff.ogamephase.as_ref().map_or(false, |gamephase| gamephase.which_player_can_do_something().is_none()) {
+            while self.ogamephase.as_ref().map_or(false, |gamephase| gamephase.which_player_can_do_something().is_none()) {
                 use VGamePhaseGeneric::*;
                 fn next_game(table: &mut STable) -> Option<VGamePhase> {
                     /*           E2
@@ -397,7 +393,7 @@ impl STable {
                     }
                     // Players: E1 E2 E3 S0 [S1 S2 ... SN E0] (E1, E2, E3 may be None)
                     if_then_some!(table.players.mapepiopeer.iter().all(|activepeer| activepeer.opeer.is_some()),
-                        VGamePhase::DealCards(SDealCards::new(static_ruleset(), table.gamestuff.n_stock))
+                        VGamePhase::DealCards(SDealCards::new(static_ruleset(), table.n_stock))
                     )
                     // TODO should we clear timeouts?
                 };
@@ -408,15 +404,15 @@ impl STable {
                 ) -> Option<VGamePhase> {
                     Some(phase.finish().map_or_else(fn_err, fn_ok))
                 }
-                if let Some(gamephase) = self.gamestuff.ogamephase.take() {
-                    self.gamestuff.ogamephase = match gamephase {
+                if let Some(gamephase) = self.ogamephase.take() {
+                    self.ogamephase = match gamephase {
                         DealCards(dealcards) => simple_transition(dealcards, GamePreparations, DealCards),
                         GamePreparations(gamepreparations) => match gamepreparations.finish() {
                             Ok(VGamePreparationsFinish::DetermineRules(determinerules)) => Some(DetermineRules(determinerules)),
                             Ok(VGamePreparationsFinish::DirectGame(game)) => Some(Game(game)),
                             Ok(VGamePreparationsFinish::Stock(gameresult)) => {
                                 let mapepiopeer = &mut self.players.mapepiopeer;
-                                gameresult.apply_payout(&mut self.gamestuff.n_stock, |epi, n_payout| {
+                                gameresult.apply_payout(&mut self.n_stock, |epi, n_payout| {
                                     if let Some(ref mut peer) = mapepiopeer[epi].opeer {
                                         peer.n_money += n_payout;
                                     }
@@ -430,7 +426,7 @@ impl STable {
                         GameResult(gameresult) => match gameresult.finish() {
                             Ok(gameresult) => {
                                 let mapepiopeer = &mut self.players.mapepiopeer;
-                                gameresult.apply_payout(&mut self.gamestuff.n_stock, |epi, n_payout| {
+                                gameresult.apply_payout(&mut self.n_stock, |epi, n_payout| {
                                     if let Some(ref mut peer) = mapepiopeer[epi].opeer {
                                         peer.n_money += n_payout;
                                     }
@@ -442,7 +438,7 @@ impl STable {
                     };
                 }
             }
-            if let Some(ref gamephase) = self.gamestuff.ogamephase {
+            if let Some(ref gamephase) = self.ogamephase {
                 if let Some(whichplayercandosomething) = verify!(gamephase.which_player_can_do_something()) {
                     fn ask_with_timeout(
                         otimeoutcmd: &mut Option<STimeoutCmd>,
