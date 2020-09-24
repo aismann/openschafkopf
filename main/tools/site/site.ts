@@ -34,7 +34,7 @@ class SSiteState {
     readonly vectplstrstr_caption_message_zugeben: Array<[string, string]>;
     readonly msg: string | Ask_;
     readonly ostich_current: null | Array<null | string>;
-    readonly ostich_prev: null | Array<null | string>; // TODO good idea to have optionals?
+    readonly ostich_prev: null | Array<string>;
     readonly oepi_winner_prev: null | EPlayerIndex; // TODO should be together with ostich_prev
     readonly oepi_animate_card: null | EPlayerIndex; // TODO should be derived from ostich_current
     readonly mapepistr: Array<string>;
@@ -144,7 +144,7 @@ ws.onmessage = function(msg) {
         for (let i_epi = 0; i_epi<4; i_epi++) {
             let div_card = document.createElement("DIV");
             div_card.className = "card_stich card_stich_" + i_epi + " card";
-            if (sitestate.ostich_prev[i_epi]) {
+            if (sitestate.ostich_prev) {
                 div_card.className += " card_" + sitestate.ostich_prev[i_epi];
             }
             if (

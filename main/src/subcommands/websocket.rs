@@ -226,22 +226,12 @@ impl SPlayers {
             let playerindex_client_to_server = |epi: EPlayerIndex| {
                 epi.wrapping_add(i_epi_relative)
             };
-            let serialize_stich = |ostich: Option<&SStich>| {
-                if let Some(stich)=ostich {
-                    EPlayerIndex::map_from_fn(|epi| {
-                        stich.get(playerindex_client_to_server(epi))
-                            .map(SCard::to_string)
-                    }).into_raw()
-                } else {
-                    [None, None, None, None]
-                }
-            };
             #[derive(new, Serialize)]
             struct SSiteState {
                 vectplstrstr_caption_message_zugeben: Vec<(String, VGamePhaseAction)>,
                 msg: VMessage,
-                ostich_current: [Option<String>; EPlayerIndex::SIZE],
-                ostich_prev: [Option<String>; EPlayerIndex::SIZE],
+                ostich_current: Option<[Option<String>; EPlayerIndex::SIZE]>,
+                ostich_prev: Option<[String; EPlayerIndex::SIZE]>,
                 oepi_winner_prev: Option<EPlayerIndex>,
                 oepi_animate_card: Option<EPlayerIndex>,
                 mapepistr: [String; EPlayerIndex::SIZE],
@@ -249,19 +239,29 @@ impl SPlayers {
                 oepi_timeout: Option<EPlayerIndex>,
             }
             let ostich_current = oslcstich.and_then(|slcstich| slcstich.last());
+            let card_in_stich = |stich: &SStich, epi| {
+                stich.get(playerindex_client_to_server(epi)).map(SCard::to_string)
+            };
             debug_verify!(peer.txmsg.unbounded_send(
                 debug_verify!(serde_json::to_string(&SSiteState::new(
                     veccard.into_iter()
                         .map(|card| (card.to_string(), VGamePhaseAction::Game(VGameAction::Zugeben(card))))
                         .collect::<Vec<_>>(),
                     msg,
-                    serialize_stich(ostich_current),
-                    serialize_stich(
-                        oslcstich
+                    /*ostich_current*/if_then_some!(let Some(stich)=ostich_current,
+                        EPlayerIndex::map_from_fn(|epi| {
+                            card_in_stich(stich, epi)
+                        }).into_raw()
+                    ),
+                    /*ostich_prev*/ if_then_some!(
+                        let Some(stich)= oslcstich
                             .and_then(|slcstich| debug_verify!(slcstich.split_last()))
                             .and_then(|(_stich_current, slcstich_up_to_last)|
                                 slcstich_up_to_last.last()
-                            )
+                            ),
+                        EPlayerIndex::map_from_fn(|epi| {
+                            debug_verify!(card_in_stich(stich, epi)).unwrap()
+                        }).into_raw()
                     ),
                     ostich_current
                         .map(|stich| playerindex_server_to_client(stich.first_playerindex())), // winner index of ostich_prev // TODO should be part of ostich_prev
