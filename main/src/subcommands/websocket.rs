@@ -248,21 +248,21 @@ impl SPlayers {
                         .map(|card| (card.to_string(), VGamePhaseAction::Game(VGameAction::Zugeben(card))))
                         .collect::<Vec<_>>(),
                     msg,
-                    /*ostich_current*/if_then_some!(let Some(stich)=ostich_current,
+                    /*ostich_current*/ostich_current.map(|stich|
                         EPlayerIndex::map_from_fn(|epi| {
                             card_in_stich(stich, epi)
                         }).into_raw()
                     ),
-                    /*ostich_prev*/ if_then_some!(
-                        let Some(stich)= oslcstich
-                            .and_then(|slcstich| debug_verify!(slcstich.split_last()))
-                            .and_then(|(_stich_current, slcstich_up_to_last)|
-                                slcstich_up_to_last.last()
-                            ),
-                        EPlayerIndex::map_from_fn(|epi| {
-                            debug_verify!(card_in_stich(stich, epi)).unwrap()
-                        }).into_raw()
-                    ),
+                    /*ostich_prev*/oslcstich
+                        .and_then(|slcstich| debug_verify!(slcstich.split_last()))
+                        .and_then(|(_stich_current, slcstich_up_to_last)|
+                            slcstich_up_to_last.last()
+                        )
+                        .map(|stich|
+                            EPlayerIndex::map_from_fn(|epi| {
+                                debug_verify!(card_in_stich(stich, epi)).unwrap()
+                            }).into_raw()
+                        ),
                     ostich_current
                         .map(|stich| playerindex_server_to_client(stich.first_playerindex())), // winner index of ostich_prev // TODO should be part of ostich_prev
                     ostich_current
