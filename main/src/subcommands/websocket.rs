@@ -226,19 +226,29 @@ impl SPlayers {
             let playerindex_client_to_server = |epi: EPlayerIndex| {
                 epi.wrapping_add(i_epi_relative)
             };
+            #[derive(Serialize)]
+            struct SDisplayedStichPrev {
+                mapepistr_card: [String; EPlayerIndex::SIZE],
+            }
+            #[derive(Serialize)]
+            struct SDisplayedStichCurrent {
+                epi_first: EPlayerIndex, // also denotes winner index of ostichprev
+                vecstr_card: Vec<String>,
+            }
+            #[derive(Serialize)]
+            struct SDisplayedStichs {
+                stichcurrent: SDisplayedStichCurrent,
+                ostichprev: Option<SDisplayedStichPrev>,
+            }
             #[derive(new, Serialize)]
             struct SSiteState {
                 vectplstrstr_caption_message_zugeben: Vec<(String, VGamePhaseAction)>,
                 msg: VMessage,
-                ostich_current: Option<[Option<String>; EPlayerIndex::SIZE]>,
-                ostich_prev: Option<[String; EPlayerIndex::SIZE]>,
-                oepi_winner_prev: Option<EPlayerIndex>,
-                oepi_animate_card: Option<EPlayerIndex>,
+                odisplayedstichs: Option<SDisplayedStichs>,
                 mapepistr: [String; EPlayerIndex::SIZE],
                 otplepistr_rules: Option<(EPlayerIndex, String)>,
                 oepi_timeout: Option<EPlayerIndex>,
             }
-            let ostich_current = oslcstich.and_then(|slcstich| slcstich.last());
             let card_in_stich = |stich: &SStich, epi| {
                 stich.get(playerindex_client_to_server(epi)).map(SCard::to_string)
             };
@@ -248,27 +258,28 @@ impl SPlayers {
                         .map(|card| (card.to_string(), VGamePhaseAction::Game(VGameAction::Zugeben(card))))
                         .collect::<Vec<_>>(),
                     msg,
-                    /*ostich_current*/ostich_current.map(|stich|
-                        EPlayerIndex::map_from_fn(|epi| {
-                            card_in_stich(stich, epi)
-                        }).into_raw()
-                    ),
-                    /*ostich_prev*/oslcstich
-                        .and_then(|slcstich| debug_verify!(slcstich.split_last()))
-                        .and_then(|(_stich_current, slcstich_up_to_last)|
-                            slcstich_up_to_last.last()
-                        )
-                        .map(|stich|
-                            EPlayerIndex::map_from_fn(|epi| {
-                                debug_verify!(card_in_stich(stich, epi)).unwrap()
-                            }).into_raw()
-                        ),
-                    ostich_current
-                        .map(|stich| playerindex_server_to_client(stich.first_playerindex())), // winner index of ostich_prev // TODO should be part of ostich_prev
-                    ostich_current
-                        .and_then(SStich::current_playerindex)
-                        .map(|epi| epi.wrapping_add(EPlayerIndex::SIZE - 1)) // TODO plain_enum wrapping_sub
-                        .map(playerindex_server_to_client), // winner index of ostich_prev // TODO should be part of ostich_prev
+                    /*odisplayedstichs*/ oslcstich.and_then(|slcstich| {
+                        slcstich
+                            .split_last()
+                            .map(|(stich_current, slcstich_up_to_last)| {
+                                SDisplayedStichs{
+                                    stichcurrent: SDisplayedStichCurrent {
+                                        epi_first: playerindex_server_to_client(stich_current.first_playerindex()),
+                                        vecstr_card: stich_current
+                                            .iter()
+                                            .map(|(_epi, card)| card.to_string())
+                                            .collect(),
+                                    },
+                                    ostichprev: slcstich_up_to_last
+                                        .last()
+                                        .map(|stich_prev| SDisplayedStichPrev{
+                                            mapepistr_card: EPlayerIndex
+                                                ::map_from_fn(|epi| debug_verify!(card_in_stich(stich_prev, epi)).unwrap())
+                                                .into_raw()
+                                        })
+                                }
+                            })
+                    }),
                     EPlayerIndex::map_from_fn(|epi| 
                         format!("{} ({})",
                             mapepistr_name[playerindex_client_to_server(epi)],

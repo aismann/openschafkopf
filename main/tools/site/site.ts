@@ -1,4 +1,5 @@
 enum EPlayerIndex { EPI0=0, EPI1, EPI2, EPI3, } // TODO can we simplify enum interop with serde?
+let EPlayerIndex_SIZE = 4; // TODO derive this from enum
 
 enum SCard {
     E7, E8, E9, EZ, EU, EO, EK, EA,
@@ -30,13 +31,21 @@ function getAsk(msg: string | Ask_) : Ask | null {
     }
 }
 
+class SDisplayedStichPrev {
+    mapepistr_card: Array<string>;
+}
+class SDisplayedStichCurrent {
+    epi_first: EPlayerIndex; // also denotes winner index of ostichprev
+    vecstr_card: Array<string>;
+}
+class SDisplayedStichs {
+    stichcurrent: SDisplayedStichCurrent;
+    ostichprev: null | SDisplayedStichPrev;
+}
 class SSiteState {
     readonly vectplstrstr_caption_message_zugeben: Array<[string, string]>;
     readonly msg: string | Ask_;
-    readonly ostich_current: null | Array<null | string>;
-    readonly ostich_prev: null | Array<string>;
-    readonly oepi_winner_prev: null | EPlayerIndex; // TODO should be together with ostich_prev
-    readonly oepi_animate_card: null | EPlayerIndex; // TODO should be derived from ostich_current
+    readonly odisplayedstichs: null | SDisplayedStichs;
     readonly mapepistr: Array<string>;
     readonly otplepistr_rules: null | [EPlayerIndex, string]
     readonly oepi_timeout: null | EPlayerIndex;
@@ -117,57 +126,60 @@ ws.onmessage = function(msg) {
         div_askpanel.hidden = true;
     }
     {
-        console.log(sitestate.ostich_current);
-        console.log("Most recent card: " + sitestate.oepi_animate_card);
-        let div_stich_new = document.createElement("DIV");
-        div_stich_new.id = "stich";
-        for (let i_epi = 0; i_epi<4; i_epi++) {
-            let div_card = document.createElement("DIV");
-            div_card.className = "card_stich card_stich_" + i_epi + " card";
-            if (sitestate.ostich_current[i_epi]) {
-                div_card.className += " card_" + sitestate.ostich_current[i_epi];
-                if (sitestate.oepi_animate_card==i_epi) {
-                    div_card.style.animationDuration = "250ms";
-                } else {
-                    div_card.style.animationDuration = "0s";
+        console.log(sitestate.odisplayedstichs);
+        if (sitestate.odisplayedstichs) {
+            let stichcurrent = sitestate.odisplayedstichs.stichcurrent;
+            let epi_animate_card = (stichcurrent.epi_first + stichcurrent.vecstr_card.length - 1) % EPlayerIndex_SIZE;
+            console.log("Most recent card: " + epi_animate_card);
+            let div_stich_new = document.createElement("DIV");
+            div_stich_new.id = "stich";
+            for (let i = 0; i<4; i++) {
+                let epi = (stichcurrent.epi_first + i) % EPlayerIndex_SIZE;
+                let div_card = document.createElement("DIV");
+                div_card.className = "card_stich card_stich_" + epi + " card";
+                if (stichcurrent.vecstr_card[i]) {
+                    div_card.className += " card_" + stichcurrent.vecstr_card[i];
+                    if (epi_animate_card==epi) {
+                        div_card.style.animationDuration = "250ms";
+                    } else {
+                        div_card.style.animationDuration = "0s";
+                    }
                 }
+                div_stich_new.appendChild(div_card);
             }
-            div_stich_new.appendChild(div_card);
+            let div_stich_old = document.getElementById("stich");
+            div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
         }
-        let div_stich_old = document.getElementById("stich");
-        div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
     }
     {
-        console.log(sitestate.ostich_prev);
-        let div_stich_new = document.createElement("DIV");
-        div_stich_new.id = "stich_old";
-        for (let i_epi = 0; i_epi<4; i_epi++) {
-            let div_card = document.createElement("DIV");
-            div_card.className = "card_stich card_stich_" + i_epi + " card";
-            if (sitestate.ostich_prev) {
-                div_card.className += " card_" + sitestate.ostich_prev[i_epi];
+        if (sitestate.odisplayedstichs) {
+            let div_stich_new = document.createElement("DIV");
+            div_stich_new.id = "stich_old";
+            for (let epi = 0; epi<4; epi++) {
+                let div_card = document.createElement("DIV");
+                div_card.className = "card_stich card_stich_" + epi + " card";
+                if (sitestate.odisplayedstichs.ostichprev) {
+                    div_card.className += " card_" + sitestate.odisplayedstichs.ostichprev.mapepistr_card[epi];
+                }
+                if (0==sitestate.odisplayedstichs.stichcurrent.vecstr_card.length) {
+                    div_stich_new.style.animationDuration = "250ms";
+                } else {
+                    div_stich_new.style.animationDuration = "0s";
+                }
+                div_stich_new.appendChild(div_card);
             }
-            if (
-                sitestate.ostich_current
-                && !sitestate.ostich_current[0]
-                && !sitestate.ostich_current[1]
-                && !sitestate.ostich_current[2]
-                && !sitestate.ostich_current[3]
-            ) {
-                div_stich_new.style.animationDuration = "250ms";
-            } else {
-                div_stich_new.style.animationDuration = "0s";
-            }
-            div_stich_new.appendChild(div_card);
-        }
-        let div_stich_old = document.getElementById("stich_old");
-        div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
-    }
-    {
-        console.log(sitestate.oepi_winner_prev);
-        if (null!==sitestate.oepi_winner_prev) {
             let div_stich_old = document.getElementById("stich_old");
-            div_stich_old.className = "stich_old_" + sitestate.oepi_winner_prev;
+            div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
+        }
+    }
+    {
+        if (sitestate.odisplayedstichs && sitestate.odisplayedstichs.ostichprev) {
+            let epi_winner_prev = sitestate.odisplayedstichs.stichcurrent.epi_first;
+            console.log(epi_winner_prev);
+            if (null!==epi_winner_prev) {
+                let div_stich_old = document.getElementById("stich_old");
+                div_stich_old.className = "stich_old_" + epi_winner_prev;
+            }
         }
     }
     {
