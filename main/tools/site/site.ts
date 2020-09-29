@@ -57,6 +57,12 @@ function assert(b) {
     }
 }
 
+function new_div_with_id(str_id: string) {
+    let div = document.createElement("DIV");
+    div.id = str_id;
+    return div;
+}
+
 let str_player_name = prompt("Name:");
 let ws = new WebSocket("ws://localhost:8080");
 ws.onopen = function(event) {
@@ -103,8 +109,7 @@ ws.onmessage = function(msg) {
     }
     if (oask && oask.vecstrgamephaseaction) { // TODO is this the canonical emptiness check?
         console.log("ASK: " + oask);
-        let div_askpanel_new = document.createElement("DIV");
-        div_askpanel_new.id = "askpanel";
+        let div_askpanel_new = new_div_with_id("askpanel");
         let paragraph_title = document.createElement("p");
         paragraph_title.appendChild(document.createTextNode(oask.str_question));
         div_askpanel_new.appendChild(paragraph_title);
@@ -133,8 +138,7 @@ ws.onmessage = function(msg) {
                 let stichcurrent = displayedstichs.stichcurrent;
                 let epi_animate_card = (stichcurrent.epi_first + stichcurrent.vecstr_card.length - 1) % EPlayerIndex_SIZE;
                 console.log("Most recent card: " + epi_animate_card);
-                let div_stich_new = document.createElement("DIV");
-                div_stich_new.id = "stich";
+                let div_stich_new = new_div_with_id("stich");
                 for (let i = 0; i<4; i++) {
                     let epi = (stichcurrent.epi_first + i) % EPlayerIndex_SIZE;
                     let div_card = document.createElement("DIV");
@@ -153,8 +157,7 @@ ws.onmessage = function(msg) {
                 div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
             }
             { // current stich animation
-                let div_stich_new = document.createElement("DIV");
-                div_stich_new.id = "stich_old";
+                let div_stich_new = new_div_with_id("stich_old");
                 for (let epi = 0; epi<4; epi++) {
                     let div_card = document.createElement("DIV");
                     div_card.className = "card_stich card_stich_" + epi + " card";
