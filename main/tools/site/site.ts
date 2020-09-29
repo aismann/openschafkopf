@@ -128,57 +128,56 @@ ws.onmessage = function(msg) {
     {
         console.log(sitestate.odisplayedstichs);
         if (sitestate.odisplayedstichs) {
-            let stichcurrent = sitestate.odisplayedstichs.stichcurrent;
-            let epi_animate_card = (stichcurrent.epi_first + stichcurrent.vecstr_card.length - 1) % EPlayerIndex_SIZE;
-            console.log("Most recent card: " + epi_animate_card);
-            let div_stich_new = document.createElement("DIV");
-            div_stich_new.id = "stich";
-            for (let i = 0; i<4; i++) {
-                let epi = (stichcurrent.epi_first + i) % EPlayerIndex_SIZE;
-                let div_card = document.createElement("DIV");
-                div_card.className = "card_stich card_stich_" + epi + " card";
-                if (stichcurrent.vecstr_card[i]) {
-                    div_card.className += " card_" + stichcurrent.vecstr_card[i];
-                    if (epi_animate_card==epi) {
-                        div_card.style.animationDuration = "250ms";
-                    } else {
-                        div_card.style.animationDuration = "0s";
+            let displayedstichs = sitestate.odisplayedstichs;
+            { // current stich
+                let stichcurrent = displayedstichs.stichcurrent;
+                let epi_animate_card = (stichcurrent.epi_first + stichcurrent.vecstr_card.length - 1) % EPlayerIndex_SIZE;
+                console.log("Most recent card: " + epi_animate_card);
+                let div_stich_new = document.createElement("DIV");
+                div_stich_new.id = "stich";
+                for (let i = 0; i<4; i++) {
+                    let epi = (stichcurrent.epi_first + i) % EPlayerIndex_SIZE;
+                    let div_card = document.createElement("DIV");
+                    div_card.className = "card_stich card_stich_" + epi + " card";
+                    if (stichcurrent.vecstr_card[i]) {
+                        div_card.className += " card_" + stichcurrent.vecstr_card[i];
+                        if (epi_animate_card==epi) {
+                            div_card.style.animationDuration = "250ms";
+                        } else {
+                            div_card.style.animationDuration = "0s";
+                        }
                     }
+                    div_stich_new.appendChild(div_card);
                 }
-                div_stich_new.appendChild(div_card);
+                let div_stich_old = document.getElementById("stich");
+                div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
             }
-            let div_stich_old = document.getElementById("stich");
-            div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
-        }
-    }
-    {
-        if (sitestate.odisplayedstichs) {
-            let div_stich_new = document.createElement("DIV");
-            div_stich_new.id = "stich_old";
-            for (let epi = 0; epi<4; epi++) {
-                let div_card = document.createElement("DIV");
-                div_card.className = "card_stich card_stich_" + epi + " card";
-                if (sitestate.odisplayedstichs.ostichprev) {
-                    div_card.className += " card_" + sitestate.odisplayedstichs.ostichprev.mapepistr_card[epi];
+            { // current stich animation
+                let div_stich_new = document.createElement("DIV");
+                div_stich_new.id = "stich_old";
+                for (let epi = 0; epi<4; epi++) {
+                    let div_card = document.createElement("DIV");
+                    div_card.className = "card_stich card_stich_" + epi + " card";
+                    if (displayedstichs.ostichprev) {
+                        div_card.className += " card_" + displayedstichs.ostichprev.mapepistr_card[epi];
+                    }
+                    if (0==displayedstichs.stichcurrent.vecstr_card.length) {
+                        div_stich_new.style.animationDuration = "250ms";
+                    } else {
+                        div_stich_new.style.animationDuration = "0s";
+                    }
+                    div_stich_new.appendChild(div_card);
                 }
-                if (0==sitestate.odisplayedstichs.stichcurrent.vecstr_card.length) {
-                    div_stich_new.style.animationDuration = "250ms";
-                } else {
-                    div_stich_new.style.animationDuration = "0s";
-                }
-                div_stich_new.appendChild(div_card);
-            }
-            let div_stich_old = document.getElementById("stich_old");
-            div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
-        }
-    }
-    {
-        if (sitestate.odisplayedstichs && sitestate.odisplayedstichs.ostichprev) {
-            let epi_winner_prev = sitestate.odisplayedstichs.stichcurrent.epi_first;
-            console.log(epi_winner_prev);
-            if (null!==epi_winner_prev) {
                 let div_stich_old = document.getElementById("stich_old");
-                div_stich_old.className = "stich_old_" + epi_winner_prev;
+                div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
+            }
+            if (displayedstichs.ostichprev) {
+                let epi_winner_prev = displayedstichs.stichcurrent.epi_first;
+                console.log(epi_winner_prev);
+                if (null!==epi_winner_prev) {
+                    let div_stich_old = document.getElementById("stich_old");
+                    div_stich_old.className = "stich_old_" + epi_winner_prev;
+                }
             }
         }
     }
