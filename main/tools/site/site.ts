@@ -63,6 +63,13 @@ function new_div_with_id(str_id: string) {
     return div;
 }
 
+function new_div_card_in_stich(epi: EPlayerIndex, str_card: string) {
+    let div_card = document.createElement("DIV");
+    div_card.className = "card_stich card_stich_" + epi + " card";
+    div_card.className += " card_" + str_card;
+    return div_card;
+}
+
 let str_player_name = prompt("Name:");
 let ws = new WebSocket("ws://localhost:8080");
 ws.onopen = function(event) {
@@ -140,36 +147,32 @@ ws.onmessage = function(msg) {
                 console.log("Most recent card: " + epi_animate_card);
                 let div_stich_new = new_div_with_id("stich");
                 for (let i = 0; i<4; i++) {
-                    let epi = (stichcurrent.epi_first + i) % EPlayerIndex_SIZE;
-                    let div_card = document.createElement("DIV");
-                    div_card.className = "card_stich card_stich_" + epi + " card";
                     if (stichcurrent.vecstr_card[i]) {
-                        div_card.className += " card_" + stichcurrent.vecstr_card[i];
+                        let epi = (stichcurrent.epi_first + i) % EPlayerIndex_SIZE;
+                        let div_card = new_div_card_in_stich(epi, stichcurrent.vecstr_card[i]);
                         if (epi_animate_card==epi) {
                             div_card.style.animationDuration = "250ms";
                         } else {
                             div_card.style.animationDuration = "0s";
                         }
+                        div_stich_new.appendChild(div_card);
                     }
-                    div_stich_new.appendChild(div_card);
                 }
                 let div_stich_old = document.getElementById("stich");
                 div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
             }
             { // current stich animation
                 let div_stich_new = new_div_with_id("stich_old");
-                for (let epi = 0; epi<4; epi++) {
-                    let div_card = document.createElement("DIV");
-                    div_card.className = "card_stich card_stich_" + epi + " card";
-                    if (displayedstichs.ostichprev) {
-                        div_card.className += " card_" + displayedstichs.ostichprev.mapepistr_card[epi];
+                if (displayedstichs.ostichprev) {
+                    for (let epi = 0; epi<4; epi++) {
+                        let div_card = new_div_card_in_stich(epi, displayedstichs.ostichprev.mapepistr_card[epi])
+                        if (0==displayedstichs.stichcurrent.vecstr_card.length) {
+                            div_stich_new.style.animationDuration = "250ms";
+                        } else {
+                            div_stich_new.style.animationDuration = "0s";
+                        }
+                        div_stich_new.appendChild(div_card);
                     }
-                    if (0==displayedstichs.stichcurrent.vecstr_card.length) {
-                        div_stich_new.style.animationDuration = "250ms";
-                    } else {
-                        div_stich_new.style.animationDuration = "0s";
-                    }
-                    div_stich_new.appendChild(div_card);
                 }
                 let div_stich_old = document.getElementById("stich_old");
                 div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
