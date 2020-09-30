@@ -83,6 +83,10 @@ function set_animationDuration_if(div: HTMLElement, b: boolean) {
     }
 }
 
+function replace_div_with(div_old: HTMLElement, div_new: HTMLElement) {
+    div_old.parentNode.replaceChild(div_new, div_old);
+}
+
 let str_player_name = prompt("Name:");
 let ws = new WebSocket("ws://localhost:8080");
 ws.onopen = function(event) {
@@ -143,7 +147,7 @@ ws.onmessage = function(msg) {
             div_askpanel_new.appendChild(paragraph_btns);
             //window.scrollTo(0, document.body.scrollHeight);
         }
-        div_askpanel.parentNode.replaceChild(div_askpanel_new, div_askpanel);
+        replace_div_with(div_askpanel, div_askpanel_new);
     } else {
         div_askpanel.hidden = true;
     }
@@ -163,8 +167,7 @@ ws.onmessage = function(msg) {
                         div_stich_new.appendChild(div_card);
                     }
                 }
-                let div_stich_old = document.getElementById("stich");
-                div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
+                replace_div_with(document.getElementById("stich"), div_stich_new);
             }
             { // current stich animation
                 let div_stich_new = new_div_with_id("stich_old");
@@ -175,8 +178,7 @@ ws.onmessage = function(msg) {
                         div_stich_new.appendChild(div_card);
                     }
                 }
-                let div_stich_old = document.getElementById("stich_old");
-                div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
+                replace_div_with(document.getElementById("stich_old"), div_stich_new);
             }
             if (displayedstichs.ostichprev) {
                 let epi_winner_prev = dbg(displayedstichs.stichcurrent.epi_first);
