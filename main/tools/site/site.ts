@@ -158,15 +158,16 @@ ws.onmessage = function(msg) {
                 replace_div_with(document.getElementById("stich"), div_stich_new);
             }
             { // current stich animation
-                let div_stich_new = new_div_with_id("stich_old");
+                let div_stich_prev = new_div_with_id("stich_old");
                 if (displayedstichs.ostichprev) {
                     for (let epi = 0; epi<4; epi++) {
-                        let div_card = new_div_card_in_stich(epi, displayedstichs.ostichprev.mapepistr_card[epi])
-                        set_animationDuration_if(div_stich_new, 0==displayedstichs.stichcurrent.vecstr_card.length);
-                        div_stich_new.appendChild(div_card);
+                        div_stich_prev.appendChild(
+                            new_div_card_in_stich(epi, displayedstichs.ostichprev.mapepistr_card[epi])
+                        );
                     }
+                    set_animationDuration_if(div_stich_prev, 0==displayedstichs.stichcurrent.vecstr_card.length);
                 }
-                replace_div_with(document.getElementById("stich_old"), div_stich_new);
+                replace_div_with(document.getElementById("stich_old"), div_stich_prev);
             }
             if (displayedstichs.ostichprev) {
                 let epi_winner_prev = dbg(displayedstichs.stichcurrent.epi_first);
