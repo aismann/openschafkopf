@@ -57,6 +57,11 @@ function assert(b) {
     }
 }
 
+function dbg(t) {
+    console.log(t);
+    return t;
+}
+
 function new_div_with_id(str_id: string) {
     let div = document.createElement("DIV");
     div.id = str_id;
@@ -76,8 +81,7 @@ ws.onopen = function(event) {
     ws.send(JSON.stringify({"PlayerLogin": {"str_player_name": str_player_name}}));
 };
 ws.onmessage = function(msg) {
-    let sitestate = JSON.parse(msg.data) as SSiteState; // assume that server sends valid SSiteState // TODO? assert/check
-    console.log(sitestate);
+    let sitestate = dbg(JSON.parse(msg.data) as SSiteState); // assume that server sends valid SSiteState // TODO? assert/check
     {
         let div_hand = document.getElementById("hand");
         let vecdiv_card = div_hand.getElementsByClassName("card");
@@ -104,30 +108,28 @@ ws.onmessage = function(msg) {
             }
             (<HTMLElement>div_card).onclick = function () {
                 // TODO if (!player is active) { check } else
-                console.log(tplcardstr[1]);
-                ws.send(JSON.stringify({"GamePhaseAction": tplcardstr[1]}));
+                ws.send(JSON.stringify({"GamePhaseAction": dbg(tplcardstr[1])}));
             };
         }
     }
     let div_askpanel = document.getElementById("askpanel");
     let oask = getAsk(sitestate.msg);
     if (oask) {
-        console.log("ASK: " + oask.vecstrgamephaseaction[0]);
+        dbg("ASK: " + oask.vecstrgamephaseaction[0]);
     }
     if (oask && oask.vecstrgamephaseaction) { // TODO is this the canonical emptiness check?
-        console.log("ASK: " + oask);
+        dbg("ASK: " + oask);
         let div_askpanel_new = new_div_with_id("askpanel");
         let paragraph_title = document.createElement("p");
         paragraph_title.appendChild(document.createTextNode(oask.str_question));
         div_askpanel_new.appendChild(paragraph_title);
         let paragraph_btns = document.createElement("p");
         for (let x of oask.vecstrgamephaseaction) {
-            console.log(x);
+            dbg(x);
             let btn = document.createElement("BUTTON");
             btn.appendChild(document.createTextNode(JSON.stringify(x[0])));
             btn.onclick = function () {
-                console.log(x[1]);
-                ws.send(JSON.stringify({"GamePhaseAction": x[1]}));
+                ws.send(JSON.stringify({"GamePhaseAction": dbg(x[1])}));
             };
             paragraph_btns.appendChild(btn);
             div_askpanel_new.appendChild(paragraph_btns);
@@ -138,13 +140,12 @@ ws.onmessage = function(msg) {
         div_askpanel.hidden = true;
     }
     {
-        console.log(sitestate.odisplayedstichs);
-        if (sitestate.odisplayedstichs) {
+        if (dbg(sitestate.odisplayedstichs)) {
             let displayedstichs = sitestate.odisplayedstichs;
             { // current stich
                 let stichcurrent = displayedstichs.stichcurrent;
                 let epi_animate_card = (stichcurrent.epi_first + stichcurrent.vecstr_card.length - 1) % EPlayerIndex_SIZE;
-                console.log("Most recent card: " + epi_animate_card);
+                dbg("Most recent card: " + epi_animate_card);
                 let div_stich_new = new_div_with_id("stich");
                 for (let i = 0; i<4; i++) {
                     if (stichcurrent.vecstr_card[i]) {
@@ -178,8 +179,7 @@ ws.onmessage = function(msg) {
                 div_stich_old.parentNode.replaceChild(div_stich_new, div_stich_old);
             }
             if (displayedstichs.ostichprev) {
-                let epi_winner_prev = displayedstichs.stichcurrent.epi_first;
-                console.log(epi_winner_prev);
+                let epi_winner_prev = dbg(displayedstichs.stichcurrent.epi_first);
                 if (null!==epi_winner_prev) {
                     let div_stich_old = document.getElementById("stich_old");
                     div_stich_old.className = "stich_old_" + epi_winner_prev;
@@ -188,8 +188,8 @@ ws.onmessage = function(msg) {
         }
     }
     {
-        console.log(sitestate.mapepistr);
-        console.log(sitestate.oepi_timeout);
+        dbg(sitestate.mapepistr);
+        dbg(sitestate.oepi_timeout);
         for (let i_epi = 0; i_epi<4; i_epi++) {
             let div_player = document.getElementById("playerpanel_player_" + i_epi);
             div_player.textContent = sitestate.mapepistr[i_epi];
@@ -201,8 +201,7 @@ ws.onmessage = function(msg) {
         }
     }
     {
-        console.log(sitestate.otplepistr_rules);
-        if (sitestate.otplepistr_rules) {
+        if (dbg(sitestate.otplepistr_rules)) {
             let div_player = document.getElementById("playerpanel_player_" + sitestate.otplepistr_rules[0]);
             div_player.textContent += ": " + sitestate.otplepistr_rules[1];
         }
