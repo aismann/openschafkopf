@@ -139,39 +139,35 @@ ws.onmessage = function(msg) {
     } else {
         div_askpanel.hidden = true;
     }
-    {
-        if (dbg(sitestate.odisplayedstichs)) {
-            let displayedstichs = sitestate.odisplayedstichs;
-            { // current stich
-                let stichcurrent = displayedstichs.stichcurrent;
-                let epi_animate_card = (stichcurrent.epi_first + stichcurrent.vecstr_card.length - 1) % EPlayerIndex_SIZE;
-                dbg("Most recent card: " + epi_animate_card);
-                let div_stich_new = new_div_with_id("stich");
-                for (let i = 0; i<4; i++) {
-                    if (stichcurrent.vecstr_card[i]) {
-                        let epi = (stichcurrent.epi_first + i) % EPlayerIndex_SIZE;
-                        let div_card = new_div_card_in_stich(epi, stichcurrent.vecstr_card[i]);
-                        set_animationDuration_if(div_card, epi_animate_card==epi);
-                        div_stich_new.appendChild(div_card);
-                    }
-                }
-                replace_div_with(document.getElementById("stich"), div_stich_new);
-            }
-            { // current stich animation
-                let div_stich_prev = new_div_with_id("stich_old");
-                if (displayedstichs.ostichprev) {
-                    let stichprev = displayedstichs.ostichprev;
-                    for (let epi = 0; epi<4; epi++) {
-                        div_stich_prev.appendChild(
-                            new_div_card_in_stich(epi, stichprev.mapepistr_card[epi])
-                        );
-                    }
-                    set_animationDuration_if(div_stich_prev, 0==displayedstichs.stichcurrent.vecstr_card.length);
-                    div_stich_prev.className = "stich_old_" + dbg(displayedstichs.stichcurrent.epi_first);
-                }
-                replace_div_with(document.getElementById("stich_old"), div_stich_prev);
+    if (dbg(sitestate.odisplayedstichs)) {
+        let displayedstichs = sitestate.odisplayedstichs;
+        // current stich
+        let stichcurrent = displayedstichs.stichcurrent;
+        let epi_animate_card = (stichcurrent.epi_first + stichcurrent.vecstr_card.length - 1) % EPlayerIndex_SIZE;
+        dbg("Most recent card: " + epi_animate_card);
+        let div_stich_new = new_div_with_id("stich");
+        for (let i = 0; i<4; i++) {
+            if (stichcurrent.vecstr_card[i]) {
+                let epi = (stichcurrent.epi_first + i) % EPlayerIndex_SIZE;
+                let div_card = new_div_card_in_stich(epi, stichcurrent.vecstr_card[i]);
+                set_animationDuration_if(div_card, epi_animate_card==epi);
+                div_stich_new.appendChild(div_card);
             }
         }
+        replace_div_with(document.getElementById("stich"), div_stich_new);
+        // previous stich
+        let div_stich_prev = new_div_with_id("stich_old");
+        if (displayedstichs.ostichprev) {
+            let stichprev = displayedstichs.ostichprev;
+            for (let epi = 0; epi<4; epi++) {
+                div_stich_prev.appendChild(
+                    new_div_card_in_stich(epi, stichprev.mapepistr_card[epi])
+                );
+            }
+            set_animationDuration_if(div_stich_prev, 0==displayedstichs.stichcurrent.vecstr_card.length);
+            div_stich_prev.className = "stich_old_" + dbg(displayedstichs.stichcurrent.epi_first);
+        }
+        replace_div_with(document.getElementById("stich_old"), div_stich_prev);
     }
     {
         dbg(sitestate.mapepistr);
