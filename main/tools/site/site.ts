@@ -75,6 +75,14 @@ function new_div_card_in_stich(epi: EPlayerIndex, str_card: string) {
     return div_card;
 }
 
+function set_animationDuration_if(div: HTMLElement, b: boolean) {
+    if (b) {
+        div.style.animationDuration = "250ms";
+    } else {
+        div.style.animationDuration = "0s";
+    }
+}
+
 let str_player_name = prompt("Name:");
 let ws = new WebSocket("ws://localhost:8080");
 ws.onopen = function(event) {
@@ -151,11 +159,7 @@ ws.onmessage = function(msg) {
                     if (stichcurrent.vecstr_card[i]) {
                         let epi = (stichcurrent.epi_first + i) % EPlayerIndex_SIZE;
                         let div_card = new_div_card_in_stich(epi, stichcurrent.vecstr_card[i]);
-                        if (epi_animate_card==epi) {
-                            div_card.style.animationDuration = "250ms";
-                        } else {
-                            div_card.style.animationDuration = "0s";
-                        }
+                        set_animationDuration_if(div_card, epi_animate_card==epi);
                         div_stich_new.appendChild(div_card);
                     }
                 }
@@ -167,11 +171,7 @@ ws.onmessage = function(msg) {
                 if (displayedstichs.ostichprev) {
                     for (let epi = 0; epi<4; epi++) {
                         let div_card = new_div_card_in_stich(epi, displayedstichs.ostichprev.mapepistr_card[epi])
-                        if (0==displayedstichs.stichcurrent.vecstr_card.length) {
-                            div_stich_new.style.animationDuration = "250ms";
-                        } else {
-                            div_stich_new.style.animationDuration = "0s";
-                        }
+                        set_animationDuration_if(div_stich_new, 0==displayedstichs.stichcurrent.vecstr_card.length);
                         div_stich_new.appendChild(div_card);
                     }
                 }
