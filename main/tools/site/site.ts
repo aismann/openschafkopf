@@ -75,6 +75,12 @@ function new_div_card_in_stich(epi: EPlayerIndex, str_card: string) {
     return div_card;
 }
 
+function new_div_card_in_hand(str_card: string) {
+    let div_card = document.createElement("DIV");
+    div_card.className = "card card_hand card_" + str_card;
+    return div_card;
+}
+
 function set_animationDuration_if(div: HTMLElement, b: boolean) {
     if (b) {
         div.style.animationDuration = "250ms";
@@ -95,34 +101,16 @@ ws.onopen = function(event) {
 ws.onmessage = function(msg) {
     let sitestate = dbg(JSON.parse(msg.data) as SSiteState); // assume that server sends valid SSiteState // TODO? assert/check
     {
-        let div_hand = document.getElementById("hand");
-        let vecdiv_card = div_hand.getElementsByClassName("card");
-        if (vecdiv_card.length < sitestate.vectplstrstr_caption_message_zugeben.length) {
-            for (let i = vecdiv_card.length; i<sitestate.vectplstrstr_caption_message_zugeben.length; i++) {
-                let div_card = document.createElement("DIV");
-                div_card.className = "card card_hand";
-                div_hand.appendChild(div_card);
-            }
-        } else if (vecdiv_card.length > sitestate.vectplstrstr_caption_message_zugeben.length) {
-            for (let i = sitestate.vectplstrstr_caption_message_zugeben.length; i<vecdiv_card.length; i++) {
-                div_hand.children[0].remove();
-            }
-        }
-        //assert_eq(vecdiv_card.length > sitestate.vectplstrstr_caption_message_zugeben.length);
-        for (let i=0; i<vecdiv_card.length; i++) {
-            let tplcardstr = sitestate.vectplstrstr_caption_message_zugeben[i];
-            let vecstr_class = ["card", "card_hand", "card_" + tplcardstr[0]];
-            let div_card = div_hand.children[i];
-            assert(div_card.classList.contains(vecstr_class[0]));
-            assert(div_card.classList.contains(vecstr_class[1]));
-            if (!div_card.classList.contains(vecstr_class[2])) {
-                div_card.className = vecstr_class.join(" ");
-            }
+        let div_hand_new = new_div_with_id("hand");
+        for (let tplstrstr of sitestate.vectplstrstr_caption_message_zugeben) {
+            let div_card = new_div_card_in_hand(tplstrstr[0]);
+            div_hand_new.appendChild(div_card);
             (<HTMLElement>div_card).onclick = function () {
                 // TODO if (!player is active) { check } else
-                ws.send(JSON.stringify({"GamePhaseAction": dbg(tplcardstr[1])}));
+                ws.send(JSON.stringify({"GamePhaseAction": dbg(tplstrstr[1])}));
             };
         }
+        replace_div_with(document.getElementById("hand"), div_hand_new);
     }
     let div_askpanel = document.getElementById("askpanel");
     let oask = getAsk(sitestate.msg);
