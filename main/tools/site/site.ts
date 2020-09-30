@@ -175,6 +175,9 @@ ws.onmessage = function(msg) {
         for (let i_epi = 0; i_epi<4; i_epi++) {
             let div_player = document.getElementById("playerpanel_player_" + i_epi);
             div_player.textContent = sitestate.mapepistr[i_epi];
+            if (dbg(sitestate.otplepistr_rules) && i_epi==sitestate.otplepistr_rules[0]) {
+                div_player.textContent += ": " + sitestate.otplepistr_rules[1];
+            }
             if (sitestate.oepi_timeout===i_epi) {
                 div_player.className = "playerpanel_active";
             } else {
@@ -183,9 +186,5 @@ ws.onmessage = function(msg) {
         }
     }
     {
-        if (dbg(sitestate.otplepistr_rules)) {
-            let div_player = document.getElementById("playerpanel_player_" + sitestate.otplepistr_rules[0]);
-            div_player.textContent += ": " + sitestate.otplepistr_rules[1];
-        }
     }
 };
