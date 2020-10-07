@@ -91,8 +91,7 @@ pub fn suggest_card(
             },
             match (eremainingcards) {
                 _1|_2|_3 => (SMinReachablePayout),
-                _4 => (SMinReachablePayoutLowerBoundViaHint),
-                _5|_6|_7|_8 => (SMinReachablePayoutLowerBoundViaHint),
+                _4|_5|_6|_7|_8 => (SMinReachablePayoutLowerBoundViaHint),
             },
         )
     };
