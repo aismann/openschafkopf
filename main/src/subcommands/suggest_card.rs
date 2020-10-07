@@ -39,12 +39,12 @@ pub fn suggest_card(
                 $func_filter_allowed_cards,
                 &$foreachsnapshot::new(
                     determinebestcard.rules,
-                    determinebestcard.epi_fixed,
+                    epi_fixed,
                     /*tpln_stoss_doubling*/(0, 0), // TODO? make customizable
                     /*n_stock*/0, // TODO? make customizable
                 ),
                 |minmax_acc, minmax| {
-                    minmax_acc.assign_min_by_key(&minmax, determinebestcard.epi_fixed);
+                    minmax_acc.assign_min_by_key(&minmax, epi_fixed);
                 },
                 /*opath_out_dir*/None, // TODO? make customizable
             )
