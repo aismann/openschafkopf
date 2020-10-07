@@ -125,7 +125,7 @@ fn main() -> Result<(), Error> {
                 (str_lo.trim().parse()?, str_hi.trim().parse()?)
             }),
             /*ostr_itahand*/subcommand_matches.value_of("simulate_hands"),
-            /*b_verbose*/subcommand_matches.is_present("verbose")
+            /*b_verbose*/subcommand_matches.is_present("verbose"),
         )
     }
     if let Some(subcommand_matches)=clapmatches.subcommand_matches("cli") {
