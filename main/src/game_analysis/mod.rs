@@ -140,11 +140,11 @@ pub fn analyze_game(str_description: &str, str_link: &str, analyzeparams: SAnaly
                         let (veccard, minmax) = determinebestcardresult.best_card(|minmax| minmax.values_for(determinebestcard.epi_fixed)[EMinMaxStrategy::OthersMin]);
                         if 
                             !veccard.contains(&card) // TODO can we improve this?
-                            && an_payout[epi]<minmax.aan_payout[EMinMaxStrategy::OthersMin][epi]
+                            && an_payout[epi]<minmax.an_others_min[epi]
                         {
                             Some(SAnalysisCardAndPayout{
                                 veccard,
-                                n_payout: minmax.aan_payout[EMinMaxStrategy::MaxPerEpi][epi]
+                                n_payout: minmax.an_max_per_epi[epi]
                             })
                         } else {
                             // The decisive mistake must occur in subsequent stichs.

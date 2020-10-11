@@ -118,7 +118,7 @@ impl SAi {
                         n_stock,
                     ),
                     /*opath_out_dir*/None,
-                ).aan_payout[EMinMaxStrategy::OthersMin][epi_rank]
+                ).an_others_min[epi_rank]
             })
             .sum::<isize>().as_num::<f64>() / (self.n_rank_rules_samples.as_num::<f64>())
     }

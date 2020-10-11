@@ -249,13 +249,15 @@ plain_enum_mod!(modeminmaxstrategy, EMinMaxStrategy {
 
 #[derive(Debug, Clone)]
 pub struct SMinMax {
-    pub aan_payout: EnumMap<EMinMaxStrategy, EnumMap<EPlayerIndex, isize>>,
+    pub an_others_min: EnumMap<EPlayerIndex, isize>,
+    pub an_max_per_epi: EnumMap<EPlayerIndex, isize>,
 }
 
 impl SMinMax {
     fn new_final(an_payout: EnumMap<EPlayerIndex, isize>) -> Self {
         Self {
-            aan_payout: EMinMaxStrategy::map_from_fn(|_| an_payout.explicit_clone()),
+            an_others_min: an_payout.explicit_clone(),
+            an_max_per_epi: an_payout.explicit_clone(),
         }
     }
 
@@ -264,14 +266,18 @@ impl SMinMax {
             (epi_minmax, ordering_minmax),
             (epi_max_per_epi, ordering_max_per_epi),
         ]);
-        for eminmaxstrat in EMinMaxStrategy::values() {
-            assign_by_key_ordering(
-                &mut self.aan_payout[eminmaxstrat],
-                minmax.aan_payout[eminmaxstrat].explicit_clone(),
-                |an_payout| an_payout[mapeminmaxstrattplepiordering[eminmaxstrat].0],
-                mapeminmaxstrattplepiordering[eminmaxstrat].1,
-            );
-        }
+        assign_by_key_ordering(
+            &mut self.an_others_min,
+            minmax.an_others_min.explicit_clone(),
+            |an_payout| an_payout[mapeminmaxstrattplepiordering[EMinMaxStrategy::OthersMin].0],
+            mapeminmaxstrattplepiordering[EMinMaxStrategy::OthersMin].1,
+        );
+        assign_by_key_ordering(
+            &mut self.an_max_per_epi,
+            minmax.an_max_per_epi.explicit_clone(),
+            |an_payout| an_payout[mapeminmaxstrattplepiordering[EMinMaxStrategy::MaxPerEpi].0],
+            mapeminmaxstrattplepiordering[EMinMaxStrategy::MaxPerEpi].1,
+        );
     }
 
     pub fn assign_min_by_key(&mut self, minmax: &SMinMax, epi: EPlayerIndex) {
@@ -282,7 +288,7 @@ impl SMinMax {
     }
 
     pub fn values_for(&self, epi: EPlayerIndex) -> EnumMap<EMinMaxStrategy, isize> {
-        self.aan_payout.map(|an_payout| an_payout[epi])
+        EMinMaxStrategy::map_from_raw([self.an_others_min[epi], self.an_max_per_epi[epi]])
     }
 }
 

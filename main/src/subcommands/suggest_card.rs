@@ -104,8 +104,8 @@ pub fn suggest_card(
     for (card, minmax) in veccardminmax {
         println!("{}: {}/{}",
             card,
-            minmax.aan_payout[EMinMaxStrategy::OthersMin][epi],
-            minmax.aan_payout[EMinMaxStrategy::MaxPerEpi][epi],
+            minmax.an_others_min[epi],
+            minmax.an_max_per_epi[epi],
         );
     }
     Ok(())
