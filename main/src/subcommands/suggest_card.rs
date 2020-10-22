@@ -338,7 +338,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 }),
                 eremainingcards
             )) {
-                (Some(None), _)|(None,_1)|(None,_2)|(None,_3)|(None,_4) => (&|_,_| (/*no filtering*/)),
+                (Some(None), _)|(None,_1)|(None,_2)|(None,_3)|(None,_4) => (&|_,_,_| (/*no filtering*/)),
                 (Some(Some((n_lo, n_hi))), _) => (&branching_factor(move |_stichseq| {
                     let n_lo = n_lo.max(1);
                     (n_lo, (n_hi.max(n_lo+1)))

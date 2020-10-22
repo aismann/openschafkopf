@@ -130,7 +130,7 @@ pub fn analyze_game(str_description: &str, str_link: &str, analyzeparams: SAnaly
                         let determinebestcardresult = determine_best_card(
                             &determinebestcard,
                             $itahand,
-                            &|_,_| (/*no filtering*/),
+                            &|_,_,_| (/*no filtering*/),
                             &SMinReachablePayout::new_from_game(game),
                             /*ostr_file_out*/None,
                         );

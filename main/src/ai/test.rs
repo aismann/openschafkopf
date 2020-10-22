@@ -136,7 +136,7 @@ fn detect_expensive_all_possible_hands() {
                                 &mut ahand,
                                 game.rules.as_ref(),
                                 &mut game.stichseq.clone(),
-                                &|_vecstich_complete, _vecstich_successor| {/*no filtering*/},
+                                &|_,_,_| {/*no filtering*/},
                                 &SLeafCounter{},
                                 /*opath_out_dir*/None,
                             ),

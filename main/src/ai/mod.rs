@@ -157,12 +157,12 @@ impl SAi {
                     // https://github.com/rust-lang/rfcs/pull/2591/commits/46135303146c660f3c5d34484e0ede6295c8f4e7#diff-8fe9cb03c196455367c9e539ea1964e8R70
                     match /*n_remaining_cards_on_hand*/remaining_cards_per_hand(determinebestcard.stichseq)[determinebestcard.epi_fixed] {
                         1|2|3 => forward_to_determine_best_card!(
-                            &|_,_| (/*no filtering*/),
+                            &|_,_,_| (/*no filtering*/),
                             SMinReachablePayout,
                             $itahand,
                         ),
                         4 => forward_to_determine_best_card!(
-                            &|_,_| (/*no filtering*/),
+                            &|_,_,_| (/*no filtering*/),
                             SMinReachablePayoutLowerBoundViaHint,
                             $itahand,
                         ),
@@ -328,7 +328,7 @@ pub fn determine_best_card<
 >(
     determinebestcard: &SDetermineBestCard,
     itahand: impl Iterator<Item=EnumMap<EPlayerIndex, SHand>> + Send,
-    func_filter_allowed_cards: &(impl Fn(&SStichSequence, &mut SHandVector) + std::marker::Sync),
+    func_filter_allowed_cards: &(impl Fn(&SStichSequence, &EnumMap<EPlayerIndex, SHand>, &mut SHandVector) + std::marker::Sync),
     foreachsnapshot: &ForEachSnapshot,
     opath_out_dir: Option<std::path::PathBuf>
 ) -> SDetermineBestCardResult<SPayoutStatsPerStrategy>
@@ -391,8 +391,8 @@ pub fn determine_best_card<
     }
 }
 
-pub fn branching_factor(fn_stichseq_to_intvl: impl Fn(&SStichSequence)->(usize, usize)) -> impl Fn(&SStichSequence, &mut SHandVector) {
-    move |stichseq, veccard_allowed| {
+pub fn branching_factor(fn_stichseq_to_intvl: impl Fn(&SStichSequence)->(usize, usize)) -> impl Fn(&SStichSequence, &EnumMap<EPlayerIndex, SHand>, &mut SHandVector) {
+    move |stichseq, _ahand, veccard_allowed| {
         assert!(!veccard_allowed.is_empty());
         let (n_lo, n_hi) = fn_stichseq_to_intvl(stichseq);
         assert!(n_lo < n_hi);
