@@ -226,11 +226,11 @@ fn explore_snapshots_internal<ForEachSnapshot>(
     } else {
         foreachsnapshot.pruned_output(stichseq, &ahand, rulestatecache).unwrap_or_else(|| {
             let mut veccard_allowed = rules.all_allowed_cards(stichseq, &ahand[epi_current]);
-            let veccard_allowed_orig = veccard_allowed.clone();
+            //let veccard_allowed_orig = veccard_allowed.clone();
             func_filter_allowed_cards(stichseq, ahand, &mut veccard_allowed);
-            if (veccard_allowed_orig!=veccard_allowed) {
-                println!("{:?} => {:?}", veccard_allowed_orig, veccard_allowed);
-            }
+            //if veccard_allowed_orig!=veccard_allowed {
+            //    println!("{:?} => {:?}", veccard_allowed_orig, veccard_allowed);
+            //}
             // TODO? use equivalent card optimization
             foreachsnapshot.combine_outputs(
                 epi_current,
