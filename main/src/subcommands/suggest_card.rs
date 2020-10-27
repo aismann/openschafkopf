@@ -232,6 +232,7 @@ impl std::str::FromStr for VConstraint {
 }
 
 plain_enum_mod!(modenopritrumpf, ENoPriTrumpf { Ass, Zehn, Koenig, S9, S8, S7, });
+plain_enum_mod!(modpritrumpf, EPriTrumpf { EO, GO, HO, SO, EU, GU, HU, SU, });
 
 pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
     let b_verbose = clapmatches.is_present("verbose");
@@ -390,14 +391,14 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     );
                     assert!(!vecstich_allowed.is_empty());
                     // clustering stuff
-                    struct SCluster(EnumMap<ENoPriTrumpf, /*None==already played, otherwise on epi's hand*/Option<EPlayerIndex>>);
-                    impl SCluster {
-                        fn extremal_equivalent_card(&self, enopritrumpf_bound: ENoPriTrumpf, b_low: bool) -> ENoPriTrumpf {
-                            dbg!(self.0);
+                    struct SCluster<E: Copy + TPlainEnum + TInternalEnumMapType<Option<EPlayerIndex>,Option<EPlayerIndex>>>(EnumMap<E, /*None==already played, otherwise on epi's hand*/Option<EPlayerIndex>>);
+                    impl<E: Copy + TPlainEnum + TInternalEnumMapType<Option<EPlayerIndex>,Option<EPlayerIndex>>> SCluster<E> {
+                        fn extremal_equivalent_card(&self, enopritrumpf_bound: E, b_low: bool) -> E {
+                            dbg!(&self.0);
                             let epi = dbg!(unwrap!(self.0[enopritrumpf_bound]));
                             let mut enopritrumpf_result = enopritrumpf_bound;
                             if dbg!(b_low) {
-                                for enopritrumpf in ENoPriTrumpf::values().skip(enopritrumpf_bound.to_usize()) {
+                                for enopritrumpf in E::values().skip(enopritrumpf_bound.to_usize()) {
                                     dbg!((enopritrumpf, self.0[enopritrumpf]));
                                     match self.0[enopritrumpf] {
                                         None => (),
@@ -411,7 +412,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                     }
                                 }
                             } else {
-                                for enopritrumpf in ENoPriTrumpf::values().take(enopritrumpf_bound.to_usize()+1) {
+                                for enopritrumpf in E::values().take(enopritrumpf_bound.to_usize()+1) {
                                     dbg!((enopritrumpf, self.0[enopritrumpf]));
                                     match self.0[enopritrumpf] {
                                         None => (),
@@ -429,10 +430,28 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         }
                     }
                     let mut mapefarbecluster = EFarbe::map_from_fn(|_| SCluster(ENoPriTrumpf::map_from_fn(|_| None)));
+                    let mut cluster_ober_unter = SCluster(EPriTrumpf::map_from_fn(|_| None));
+                    let farbe_ober_to_pritrumpf = |efarbe| {
+                        match efarbe {
+                            EFarbe::Eichel => EPriTrumpf::EO,
+                            EFarbe::Gras => EPriTrumpf::GO,
+                            EFarbe::Herz => EPriTrumpf::HO,
+                            EFarbe::Schelln => EPriTrumpf::SO,
+                        }
+                    };
+                    let farbe_unter_to_pritrumpf = |efarbe| {
+                        match efarbe {
+                            EFarbe::Eichel => EPriTrumpf::EU,
+                            EFarbe::Gras => EPriTrumpf::GU,
+                            EFarbe::Herz => EPriTrumpf::HU,
+                            EFarbe::Schelln => EPriTrumpf::SU,
+                        }
+                    };
                     for epi in EPlayerIndex::values() {
                         for card in ahand[epi].cards().iter() {
                             match card.schlag() {
-                                ESchlag::Ober | ESchlag::Unter => {},
+                                ESchlag::Ober => cluster_ober_unter.0[farbe_ober_to_pritrumpf(card.farbe())]=Some(epi),
+                                ESchlag::Unter => cluster_ober_unter.0[farbe_unter_to_pritrumpf(card.farbe())]=Some(epi),
                                 ESchlag::Ass => mapefarbecluster[card.farbe()].0[ENoPriTrumpf::Ass] = Some(epi),
                                 ESchlag::Zehn => mapefarbecluster[card.farbe()].0[ENoPriTrumpf::Zehn] = Some(epi),
                                 ESchlag::Koenig => mapefarbecluster[card.farbe()].0[ENoPriTrumpf::Koenig] = Some(epi),
@@ -450,39 +469,52 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     dbg!(&vecstich_allowed);
                     let epi_current = dbg!(unwrap!(dbg!(stichseq.current_stich()).current_playerindex()));
                     vecstich_allowed.retain(|stich| {
+                        let card = dbg!(stich[epi_current]);
                         let nopritrumpf_to_schlag = |enopritrumpf| {
-                            match enopritrumpf {
+                            let eschlag = match enopritrumpf {
                                 ENoPriTrumpf::Ass => ESchlag::Ass,
                                 ENoPriTrumpf::Zehn => ESchlag::Zehn,
                                 ENoPriTrumpf::Koenig => ESchlag::Koenig,
                                 ENoPriTrumpf::S9 => ESchlag::S9,
                                 ENoPriTrumpf::S8 => ESchlag::S8,
                                 ENoPriTrumpf::S7 => ESchlag::S7,
+                            };
+                            SCard::new(card.farbe(), dbg!(eschlag)) == card
+                        };
+                        let pritrumpf_check = |epritrumpf, b_low| {
+                            card == match cluster_ober_unter.extremal_equivalent_card(epritrumpf, b_low) {
+                                EPriTrumpf::EO => SCard::new(EFarbe::Eichel, ESchlag::Ober),
+                                EPriTrumpf::GO => SCard::new(EFarbe::Gras, ESchlag::Ober),
+                                EPriTrumpf::HO => SCard::new(EFarbe::Herz, ESchlag::Ober),
+                                EPriTrumpf::SO => SCard::new(EFarbe::Schelln, ESchlag::Ober),
+                                EPriTrumpf::EU => SCard::new(EFarbe::Eichel, ESchlag::Unter),
+                                EPriTrumpf::GU => SCard::new(EFarbe::Gras, ESchlag::Unter),
+                                EPriTrumpf::HU => SCard::new(EFarbe::Herz, ESchlag::Unter),
+                                EPriTrumpf::SU => SCard::new(EFarbe::Schelln, ESchlag::Unter),
                             }
                         };
-                        let card = dbg!(stich[epi_current]);
                         if dbg!(rules.winner_index(stich)==epi_fixed) {
-                            let schlag_extremal = match card.schlag() {
-                                ESchlag::Ober | ESchlag::Unter => card.schlag(),
+                            match card.schlag() {
+                                ESchlag::Ober => pritrumpf_check(farbe_ober_to_pritrumpf(card.farbe()), /*b_low*/false),
+                                ESchlag::Unter => pritrumpf_check(farbe_unter_to_pritrumpf(card.farbe()), /*b_low*/false),
                                 ESchlag::Ass => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::Ass, /*b_low*/false)),
                                 ESchlag::Zehn => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::Zehn, /*b_low*/false)),
                                 ESchlag::Koenig => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::Koenig, /*b_low*/false)),
                                 ESchlag::S9 => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::S9, /*b_low*/false)),
                                 ESchlag::S8 => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::S8, /*b_low*/false)),
                                 ESchlag::S7 => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::S7, /*b_low*/false)),
-                            };
-                            SCard::new(card.farbe(), dbg!(schlag_extremal)) == card
+                            }
                         } else {
-                            let schlag_extremal = match card.schlag() {
-                                ESchlag::Ober | ESchlag::Unter => card.schlag(),
+                            match card.schlag() {
+                                ESchlag::Ober => pritrumpf_check(farbe_ober_to_pritrumpf(card.farbe()), /*b_low*/true),
+                                ESchlag::Unter => pritrumpf_check(farbe_unter_to_pritrumpf(card.farbe()), /*b_low*/true),
                                 ESchlag::Ass => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::Ass, /*b_low*/true)),
                                 ESchlag::Zehn => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::Zehn, /*b_low*/true)),
                                 ESchlag::Koenig => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::Koenig, /*b_low*/true)),
                                 ESchlag::S9 => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::S9, /*b_low*/true)),
                                 ESchlag::S8 => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::S8, /*b_low*/true)),
                                 ESchlag::S7 => nopritrumpf_to_schlag(mapefarbecluster[card.farbe()].extremal_equivalent_card(ENoPriTrumpf::S7, /*b_low*/true)),
-                            };
-                            SCard::new(card.farbe(), dbg!(schlag_extremal)) == card
+                            }
                         }
                     });
                     assert!(!vecstich_allowed.is_empty());

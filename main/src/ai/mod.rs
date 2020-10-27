@@ -12,7 +12,7 @@ use crate::util::*;
 use chrono::Local;
 use itertools::Itertools;
 use rand::prelude::*;
-use rayon::prelude::*;
+//use rayon::prelude::*;
 use std::{
     self,
     sync::{Arc, Mutex},
@@ -104,7 +104,7 @@ impl SAi {
         let ekurzlang = EKurzLang::from_cards_per_player(hand_fixed.get().cards().len());
         forever_rand_hands(&SStichSequence::new(ekurzlang), hand_fixed.get().clone(), epi_rank, rules)
             .take(self.n_rank_rules_samples)
-            .par_bridge() // TODO can we derive a true parallel iterator?
+            //.par_bridge() // TODO can we derive a true parallel iterator?
             .map(|mut ahand| {
                 explore_snapshots(
                     &mut ahand,
@@ -341,9 +341,9 @@ pub fn determine_best_card<
     ));
     itahand
         .enumerate()
-        .par_bridge() // TODO can we derive a true parallel iterator?
+        //.par_bridge() // TODO can we derive a true parallel iterator?
         .flat_map(|(i_susp, ahand)|
-            determinebestcard.veccard_allowed.par_iter()
+            determinebestcard.veccard_allowed.iter()
                 .map(move |card| (i_susp, ahand.clone(), *card))
         )
         .for_each(|(i_susp, mut ahand, card)| {
