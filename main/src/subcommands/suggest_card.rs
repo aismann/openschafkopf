@@ -485,22 +485,22 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     );
                 }
                 let n_map_len_intermediate = map.len();
-                map.retain(|_, (stichseq, ahand)| {
-                    let payouthints = rules.payouthints(
-                        &stichseq,
-                        &ahand,
-                        &SRuleStateCache::new(
-                            &stichseq,
-                            &ahand,
-                            |stich| rules.winner_index(stich),
-                        ),
-                    );
-                    match (payouthints[EPlayerIndex::EPI0].lower_bound(), payouthints[EPlayerIndex::EPI0].upper_bound()) {
-                        (Some(payout_lo), _) if 0 <= payout_lo.payout_including_stock(0, (0, 0)) => false,
-                        (_, Some(payout_hi)) if payout_hi.payout_including_stock(0, (0, 0))<= 0 => false,
-                        _ => true,
-                    }
-                });
+                // map.retain(|_, (stichseq, ahand)| {
+                //     let payouthints = rules.payouthints(
+                //         &stichseq,
+                //         &ahand,
+                //         &SRuleStateCache::new(
+                //             &stichseq,
+                //             &ahand,
+                //             |stich| rules.winner_index(stich),
+                //         ),
+                //     );
+                //     match (payouthints[EPlayerIndex::EPI0].lower_bound(), payouthints[EPlayerIndex::EPI0].upper_bound()) {
+                //         (Some(payout_lo), _) if 0 <= payout_lo.payout_including_stock(0, (0, 0)) => false,
+                //         (_, Some(payout_hi)) if payout_hi.payout_including_stock(0, (0, 0))<= 0 => false,
+                //         _ => true,
+                //     }
+                // });
                 println!("{} states compressed to {} to {} ({} total)", vecstich.len(), n_map_len_intermediate - n_map_len_before, map.len() - n_map_len_before, map.len());
                 map
 
@@ -543,21 +543,21 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         );
                     }
                 } else {
-                    for (mut stichseq, mut ahand) in ittplstichseqahand {
-                        explore_snapshots(
-                            &mut ahand,
-                            rules,
-                            &mut stichseq,
-                            &|_, _| (),
-                            &SMinReachablePayoutLowerBoundViaHint::new(
-                                rules,
-                                EPlayerIndex::EPI0,
-                                (0, 0),
-                                0,
-                            ),
-                            None,
-                        );
-                    }
+                    // for (mut stichseq, mut ahand) in ittplstichseqahand {
+                    //     explore_snapshots(
+                    //         &mut ahand,
+                    //         rules,
+                    //         &mut stichseq,
+                    //         &|_, _| (),
+                    //         &SMinReachablePayoutLowerBoundViaHint::new(
+                    //             rules,
+                    //             EPlayerIndex::EPI0,
+                    //             (0, 0),
+                    //             0,
+                    //         ),
+                    //         None,
+                    //     );
+                    // }
                 }
             }
             let vecstep : Vec<_> = unwrap!(clapmatches.value_of("batch")).split(',').map(|str_step| {
@@ -573,6 +573,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             );
         }
     }
+    panic!("Nur bis hier.");
 
 
     let eremainingcards = unwrap!(ERemainingCards::checked_from_usize(remaining_cards_per_hand(&stichseq)[epi_fixed] - 1));
