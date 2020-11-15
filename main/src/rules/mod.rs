@@ -110,6 +110,10 @@ impl SPayoutHint {
     pub fn lower_bound(&self) -> &Option<SPayoutInfo> {
         &self.tpln_payout.0
     }
+
+    pub fn upper_bound(&self) -> &Option<SPayoutInfo> {
+        &self.tpln_payout.1
+    }
 }
 
 pub trait TPlayerParties {
@@ -117,7 +121,7 @@ pub trait TPlayerParties {
     fn multiplier(&self, epi: EPlayerIndex) -> isize;
 }
 
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct SRuleStateCacheFixed {
     mapcardoepi: EnumMap<SCard, Option<EPlayerIndex>>, // TODO? Option<EPlayerIndex> is clean for EKurzLang. Does it incur runtime overhead?
 }
@@ -147,16 +151,16 @@ impl SRuleStateCacheFixed {
         unwrap!(self.mapcardoepi[card])
     }
 }
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct SPointStichCount {
     pub n_stich: usize,
     pub n_point: isize,
 }
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct SRuleStateCacheChanging {
     pub mapepipointstichcount: EnumMap<EPlayerIndex, SPointStichCount>,
 }
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Debug, Clone)]
 pub struct SRuleStateCache { // TODO should we have a cache typer per rules? (Would possibly forbid having TRules trait objects.)
     pub fixed: SRuleStateCacheFixed,
     pub changing: SRuleStateCacheChanging,

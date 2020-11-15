@@ -189,7 +189,6 @@ impl<V, W> TInternalEnumMapType<V, W> for SCard {
     type MappedType = [W; SCard::SIZE];
 }
 
-#[cfg(test)]
 pub mod card_values {
     use crate::card::*;
     macro_rules! impl_card_val_internal {(($($card:ident,)*), ($($eschlag:ident,)*), $efarbe:ident) => {

@@ -6,6 +6,7 @@ use crate::rules::*;
 use crate::cardvector::*;
 use itertools::*;
 use combine::{char::*, *};
+use std::collections::{HashMap};
 
 plain_enum_mod!(moderemainingcards, ERemainingCards {_1, _2, _3, _4, _5, _6, _7, _8,});
 
@@ -253,6 +254,399 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
         &hand_fixed,
     );
     let epi_fixed = determinebestcard.epi_fixed;
+
+    {
+        let ahand = unwrap!(all_possible_hands(&stichseq, hand_fixed.clone(), epi_fixed, rules).next()).clone();
+        println!("{:?}", ahand);
+        {
+            #[derive(Clone, Debug, Eq, PartialEq, Hash)]
+            struct SBeginning {
+                setcard: EnumMap<SCard, bool>,
+                pointstichcount_epi0: SPointStichCount,
+                pointstichcount_other: SPointStichCount,
+                epi_current: EPlayerIndex,
+            };
+            impl SBeginning {
+                fn new(stichseq: &SStichSequence, rulestatecache: &SRuleStateCache) -> Self {
+                    let mut setcard = SCard::map_from_fn(|_| false);
+                    for stich in stichseq.visible_stichs() {
+                        for (_, card) in stich.iter() {
+                            assert!(!setcard[*card]);
+                            setcard[*card] = true;
+                        }
+                    }
+                    Self {
+                        setcard,
+                        pointstichcount_epi0: rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI0].clone(),
+                        pointstichcount_other: SPointStichCount {
+                            n_stich:
+                                rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI1].n_stich
+                                + rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI2].n_stich
+                                + rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI3].n_stich,
+                            n_point:
+                                rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI1].n_point
+                                + rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI2].n_point
+                                + rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI3].n_point,
+                        },
+                        epi_current: stichseq.current_stich().first_playerindex(),
+                    }
+                }
+            }
+            struct SEquivalentStichSeq {
+                n_stichseq_bound: usize,
+            };
+            impl TForEachSnapshot for SEquivalentStichSeq {
+                type Output = Vec<(SBeginning, SStichSequence, EnumMap<EPlayerIndex, SHand>)>;
+                fn final_output(&self, slcstich: SStichSequenceGameFinished, rulestatecache: &SRuleStateCache) -> Self::Output {
+                    vec![(
+                        SBeginning::new(slcstich.get(), rulestatecache),
+                        slcstich.get().clone(),
+                        EPlayerIndex::map_from_fn(|_epi| { SHand::new_from_vec(Default::default()) })
+                    )]
+                }
+                fn pruned_output(&self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>, rulestatecache: &SRuleStateCache) -> Option<Self::Output> {
+                    if_then_some!(stichseq.completed_stichs().len()==self.n_stichseq_bound,
+                        vec![(
+                            SBeginning::new(stichseq, rulestatecache),
+                            stichseq.clone(),
+                            ahand.clone(),
+                        )]
+                    )
+                }
+                fn combine_outputs<ItTplCardOutput: Iterator<Item=(SCard, Self::Output)>>(
+                    &self,
+                    _epi_card: EPlayerIndex,
+                    ittplcardoutput: ItTplCardOutput,
+                ) -> Self::Output {
+                    ittplcardoutput.map(|tplcardoutput| tplcardoutput.1).fold(vec![], mutate_return!(Vec::extend))
+                }
+            }
+            struct SCluster {
+                aveccard_equivalent: [Vec<SCard>; 4],
+            }
+            impl SCluster {
+                fn new(stichseq: &SStichSequence) -> Self {
+                    use crate::primitives::card::card_values::*;
+                    let mut aveccard_equivalent = [
+                        vec![EO, GO, HO, SO, EU, GU, HU, SU, HA, HZ, HK, H9, H8, H7],
+                        vec![EA, EZ, EK, E9, E8, E7],
+                        vec![GA, GZ, GK, G9, G8, G7],
+                        vec![SA, SZ, SK, S9, S8, S7],
+                    ];
+                    // eliminate already played cards to close gaps
+                    for stich in stichseq.completed_stichs().iter() {
+                        for (_epi, card_played) in stich.iter() {
+                            for veccard_equivalent in aveccard_equivalent.iter_mut() {
+                                veccard_equivalent.retain(|card| card!=card_played);
+                            }
+                        }
+                    }
+                    Self {
+                        aveccard_equivalent,
+                    }
+                }
+            }
+            fn internal_explore(
+                stichseq: &SStichSequence,
+                ahand: &EnumMap<EPlayerIndex, SHand>,
+                rules: &dyn TRules,
+                n_stichseq_bound: usize,
+                mut map: HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
+            ) -> HashMap<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)> {
+                let vecstichseq = explore_snapshots(
+                    &mut ahand.clone(),
+                    rules,
+                    &mut stichseq.clone(),
+                    &|stichseq, veccard_allowed| {
+                        // search for possibly equivalent cards
+                        let mut veccard_allowed_non_equiv = SHandVector::new();
+                        for veccard_equivalent in SCluster::new(stichseq).aveccard_equivalent.iter() {
+                            for (b_found, mut group) in &veccard_equivalent
+                                .iter()
+                                .group_by(|card| {
+                                    if let Some(i) = veccard_allowed.iter().position(|card_allowed| card_allowed==*card) {
+                                        veccard_allowed.swap_remove(i);
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                })
+                            {
+                                if b_found {
+                                    let card_hi = *unwrap!(group.next());
+                                    veccard_allowed_non_equiv.push(card_hi);
+                                    // Remark: Leaving out card_lo seems to be sufficient to make the whole thing efficient.
+                                    // Could we - for "linear point based" games - provably always consider only either card_hi or card_lo?
+                                    if let Some(card_lo) = group.last() {
+                                        use crate::rules::card_points::points_card;
+                                        if points_card(card_hi)!=points_card(*card_lo) {
+                                            veccard_allowed_non_equiv.push(*card_lo);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        //veccard_allowed_non_equiv.extend(veccard_allowed.iter().copied());
+                        if !veccard_allowed.is_empty() {
+                            println!("{:?}", veccard_allowed);
+                            panic!("Abbruch");
+                        }
+                        *veccard_allowed = veccard_allowed_non_equiv;
+                    },
+                    &SEquivalentStichSeq{n_stichseq_bound},
+                    /*opairfileepi_visualize*/None,
+                );
+                let n_map_len_before = map.len();
+                for (beginning, stichseq, ahand) in vecstichseq.iter() {
+                    map.insert(beginning.clone(), (stichseq.clone(), ahand.clone()));
+                }
+                let n_map_len_intermediate = map.len();
+                map.retain(|_, (stichseq, ahand)| {
+                    let payouthints = rules.payouthints(
+                        &stichseq,
+                        &ahand,
+                        &SRuleStateCache::new(
+                            &stichseq,
+                            &ahand,
+                            |stich| rules.winner_index(stich),
+                        ),
+                    );
+                    match (payouthints[EPlayerIndex::EPI0].lower_bound(), payouthints[EPlayerIndex::EPI0].upper_bound()) {
+                        (Some(payout_lo), _) if 0 <= payout_lo.payout_including_stock(0, (0, 0)) => false,
+                        (_, Some(payout_hi)) if payout_hi.payout_including_stock(0, (0, 0))<= 0 => false,
+                        _ => true,
+                    }
+                });
+                println!("{} states compressed to {} to {}", vecstichseq.len(), n_map_len_intermediate - n_map_len_before, map.len() - n_map_len_before);
+                map
+            }
+            fn internal_explore_2(
+                stichseq: &SStichSequence,
+                ahand: &EnumMap<EPlayerIndex, SHand>,
+                rules: &dyn TRules,
+                _n_stichseq_bound: usize,
+                mut map: HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
+            ) -> HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)> {
+                fn find_relevant_stichs(
+                    stichseq: &SStichSequence,
+                    stich: &mut SStich,
+                    ahand: &EnumMap<EPlayerIndex, SHand>,
+                    rules: &dyn TRules,
+                    epi_self: EPlayerIndex,
+                    fn_is_same_party: &impl Fn(EPlayerIndex, EPlayerIndex)->bool,
+                ) -> Vec<SStich> {
+                    if stich.is_full() {
+                        vec![stich.clone()] // must yield this one to callers
+                    } else {
+                        let mut vecstich_relevant = Vec::new();
+                        let epi_current = unwrap!(stich.current_playerindex());
+                        macro_rules! dbg(($e:expr) => {$e});
+                        let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
+                        for veccard_equivalent in SCluster::new(stichseq).aveccard_equivalent.iter() {
+                            for (_b_found, cluster) in veccard_equivalent
+                                .iter()
+                                .group_by(|card| {
+                                    if let Some(i) = veccard_allowed.iter().position(|card_allowed| card_allowed==*card) {
+                                        veccard_allowed.swap_remove(i);
+                                        true
+                                    } else {
+                                        false
+                                    }
+                                })
+                                .into_iter()
+                                .filter(|(b_found, _)| *b_found)
+                            {
+
+                                use crate::rules::card_points::*;
+                                let mut vecstich_candidate = Vec::new();
+                                let (mut ocard_lo, mut ocard_hi) = (None, None);
+                                for &card in cluster.unique_by(|card| points_card(**card)) {
+                                    if ocard_lo.is_none() || points_card(unwrap!(ocard_lo)) > points_card(card) {
+                                        ocard_lo = Some(card);
+                                    }
+                                    if ocard_hi.is_none() || points_card(unwrap!(ocard_hi)) < points_card(card) {
+                                        ocard_hi = Some(card);
+                                    }
+                                    stich.push(card);
+                                    let mut stichseq = stichseq.clone();
+                                    stichseq.zugeben(card, rules);
+                                    vecstich_candidate.extend(find_relevant_stichs(
+                                        &stichseq,
+                                        stich,
+                                        ahand,
+                                        rules,
+                                        epi_self,
+                                        fn_is_same_party,
+                                    ));
+                                    stich.undo_most_recent();
+                                }
+                                dbg!(&vecstich_candidate);
+                                assert!(!vecstich_candidate.is_empty());
+                                if dbg!(vecstich_candidate
+                                    .iter()
+                                    .map(|stich|
+                                        // TODO is this correct? Do we have to rely on winner_index directly?
+                                        fn_is_same_party(epi_current, rules.winner_index(stich))
+                                    )
+                                    .all_equal()
+                                ) {
+                                    //println!("Merging: {:?}", &vecstich_candidate);
+                                    fn extend_with(
+                                        vecstich: &mut Vec<SStich>,
+                                        itstich: impl IntoIterator<Item=SStich>,
+                                        fn_filter: impl Fn(&SStich)->bool,
+                                    ) {
+                                        vecstich.extend(itstich
+                                            .into_iter()
+                                            .filter(fn_filter)
+                                            //.inspect(|stich| println!("{}", stich))
+                                        );
+                                    }
+
+                                    { // the following represents a OthersMin player
+                                        if fn_is_same_party(epi_self, rules.winner_index(&vecstich_candidate[0])) {
+                                            extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo));
+                                        } else {
+                                            extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi))
+                                        }
+                                    }
+
+                                    /*{ // the following represents a MaxPerEpi player
+                                        if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
+                                            extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi));
+                                        } else {
+                                            extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo))
+                                        }
+                                    }*/
+                                } else {
+                                    vecstich_relevant.extend(vecstich_candidate);
+                                }
+                            }
+                        }
+                        vecstich_relevant
+                    }
+                }
+                let vecstich = find_relevant_stichs(
+                    stichseq,
+                    &mut stichseq.current_stich().clone(),
+                    ahand,
+                    rules,
+                    EPlayerIndex::EPI0,
+                    &|epi_lhs, epi_rhs| (epi_lhs==EPlayerIndex::EPI0)==(epi_rhs==EPlayerIndex::EPI0),
+                );
+
+
+                let n_map_len_before = map.len();
+                for stich in vecstich.iter() {
+                    let mut stichseq = stichseq.clone();
+                    assert_eq!(stichseq.current_stich().size(), 0);
+                    assert_eq!(stichseq.current_stich().first_playerindex(), stich.first_playerindex());
+                    let mut ahand = ahand.clone();
+                    for (epi, &card) in stich.iter() {
+                        stichseq.zugeben(card, rules);
+                        ahand[epi].play_card(card);
+                    }
+                    map.insert(
+                        SBeginning::new(
+                            &stichseq,
+                            &SRuleStateCache::new(
+                                &stichseq,
+                                &ahand,
+                                |stich| rules.winner_index(stich),
+                            ),
+                        ),
+                        (stichseq.clone(), ahand.clone())
+                    );
+                }
+                let n_map_len_intermediate = map.len();
+                map.retain(|_, (stichseq, ahand)| {
+                    let payouthints = rules.payouthints(
+                        &stichseq,
+                        &ahand,
+                        &SRuleStateCache::new(
+                            &stichseq,
+                            &ahand,
+                            |stich| rules.winner_index(stich),
+                        ),
+                    );
+                    match (payouthints[EPlayerIndex::EPI0].lower_bound(), payouthints[EPlayerIndex::EPI0].upper_bound()) {
+                        (Some(payout_lo), _) if 0 <= payout_lo.payout_including_stock(0, (0, 0)) => false,
+                        (_, Some(payout_hi)) if payout_hi.payout_including_stock(0, (0, 0))<= 0 => false,
+                        _ => true,
+                    }
+                });
+                println!("{} states compressed to {} to {} ({} total)", vecstich.len(), n_map_len_intermediate - n_map_len_before, map.len() - n_map_len_before, map.len());
+                map
+
+
+
+            }
+            #[derive(new)]
+            struct SStep {
+                i_stichseq_depth: usize,
+                n_batch: usize,
+            }
+            fn doit(
+                ittplstichseqahand: impl Iterator<Item=(SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
+                rules: &dyn TRules,
+                slcstep: &[SStep],
+                f_percent_lo: f32,
+                f_percent_hi: f32,
+            ) {
+                println!("{:03}% at depth: {}", f_percent_lo, slcstep.len());
+                if let Some((step, slcstep_rest)) = slcstep.split_first() {
+                    let mut map = HashMap::new();
+                    for (stichseq, ahand) in ittplstichseqahand {
+                        map = internal_explore_2(
+                            &stichseq,
+                            &ahand,
+                            rules,
+                            step.i_stichseq_depth,
+                            map,
+                        );
+                    }
+                    let f_chunks = (map.len() / step.n_batch + 1) as f32;
+                    let percentage = |i_chunk| (i_chunk as f32/f_chunks)*(f_percent_hi-f_percent_lo)+f_percent_lo;
+                    for (i_chunk, chunk) in map.into_iter().chunks(step.n_batch).into_iter().enumerate() {
+                        doit(
+                            Box::new(chunk.map(|(_, (stichseq, ahand))| (stichseq, ahand))) as Box<dyn Iterator<Item=(SStichSequence, EnumMap<EPlayerIndex, SHand>)>>,
+                            rules,
+                            slcstep_rest,
+                            percentage(i_chunk),
+                            percentage(i_chunk + 1),
+                        );
+                    }
+                } else {
+                    // explore_snapshots(
+                    //     &mut ahand,
+                    //     rules,
+                    //     &mut stichseq,
+                    //     &|_, _| (),
+                    //     &SMinReachablePayoutLowerBoundViaHint::new(
+                    //         rules,
+                    //         EPlayerIndex::EPI0,
+                    //         (0, 0),
+                    //         0,
+                    //     ),
+                    //     None,
+                    // );
+                }
+            }
+            let vecstep : Vec<_> = unwrap!(clapmatches.value_of("batch")).split(',').map(|str_step| {
+                let (str_depth, str_chunk) = unwrap!(str_step.split(' ').collect_tuple());
+                SStep::new(unwrap!(str_depth.parse()), unwrap!(str_chunk.parse()))
+            }).collect();
+            doit(
+                std::iter::once((SStichSequence::new(EKurzLang::Lang), ahand.clone())),
+                rules,
+                &vecstep,
+                0.,
+                100.,
+            );
+        }
+    }
+
+
     let eremainingcards = unwrap!(ERemainingCards::checked_from_usize(remaining_cards_per_hand(&stichseq)[epi_fixed] - 1));
     let determinebestcardresult = { // we are interested in payout => single-card-optimization useless
         macro_rules! forward{(($itahand: expr), ($func_filter_allowed_cards: expr), ($foreachsnapshot: ident),) => {{ // TODORUST generic closures
