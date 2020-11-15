@@ -267,7 +267,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 epi_current: EPlayerIndex,
             };
             impl SBeginning {
-                fn new(stichseq: &SStichSequence, rulestatecache: &SRuleStateCache) -> Self {
+                fn new(stichseq: &SStichSequence, rulestatecachechanging: &SRuleStateCacheChanging) -> Self {
                     let mut setcard = SCard::map_from_fn(|_| false);
                     for stich in stichseq.visible_stichs() {
                         for (_, card) in stich.iter() {
@@ -277,16 +277,16 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     }
                     Self {
                         setcard,
-                        pointstichcount_epi0: rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI0].clone(),
+                        pointstichcount_epi0: rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI0].clone(),
                         pointstichcount_other: SPointStichCount {
                             n_stich:
-                                rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI1].n_stich
-                                + rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI2].n_stich
-                                + rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI3].n_stich,
+                                rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI1].n_stich
+                                + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI2].n_stich
+                                + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI3].n_stich,
                             n_point:
-                                rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI1].n_point
-                                + rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI2].n_point
-                                + rulestatecache.changing.mapepipointstichcount[EPlayerIndex::EPI3].n_point,
+                                rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI1].n_point
+                                + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI2].n_point
+                                + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI3].n_point,
                         },
                         epi_current: stichseq.current_stich().first_playerindex(),
                     }
@@ -299,7 +299,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 type Output = Vec<(SBeginning, SStichSequence, EnumMap<EPlayerIndex, SHand>)>;
                 fn final_output(&self, slcstich: SStichSequenceGameFinished, rulestatecache: &SRuleStateCache) -> Self::Output {
                     vec![(
-                        SBeginning::new(slcstich.get(), rulestatecache),
+                        SBeginning::new(slcstich.get(), &rulestatecache.changing),
                         slcstich.get().clone(),
                         EPlayerIndex::map_from_fn(|_epi| { SHand::new_from_vec(Default::default()) })
                     )]
@@ -307,7 +307,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 fn pruned_output(&self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>, rulestatecache: &SRuleStateCache) -> Option<Self::Output> {
                     if_then_some!(stichseq.completed_stichs().len()==self.n_stichseq_bound,
                         vec![(
-                            SBeginning::new(stichseq, rulestatecache),
+                            SBeginning::new(stichseq, &rulestatecache.changing),
                             stichseq.clone(),
                             ahand.clone(),
                         )]
@@ -366,7 +366,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     } else {
                         let mut vecstich_relevant = Vec::new();
                         let epi_current = unwrap!(stich.current_playerindex());
-                        //macro_rules! dbg(($e:expr) => {$e});
+                        macro_rules! dbg(($e:expr) => {$e});
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
                         for veccard_equivalent in SCluster::new(stichseq).aveccard_equivalent.iter() {
                             for (_b_found, cluster) in veccard_equivalent
@@ -475,7 +475,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     map.insert(
                         SBeginning::new(
                             &stichseq,
-                            &SRuleStateCache::new(
+                            &SRuleStateCacheChanging::new(
                                 &stichseq,
                                 &ahand,
                                 |stich| rules.winner_index(stich),

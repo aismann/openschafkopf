@@ -165,6 +165,38 @@ pub struct SRuleStateCache { // TODO should we have a cache typer per rules? (Wo
     pub fixed: SRuleStateCacheFixed,
     pub changing: SRuleStateCacheChanging,
 }
+
+impl SRuleStateCacheChanging {
+    pub fn new(
+        stichseq: &SStichSequence,
+        ahand: &EnumMap<EPlayerIndex, SHand>,
+        fn_winner_index: impl Fn(&SStich)->EPlayerIndex,
+    ) -> Self {
+        debug_assert!(ahand_vecstich_card_count_is_compatible(stichseq, ahand));
+        stichseq.completed_stichs_custom_winner_index(fn_winner_index).fold(
+            Self {
+                mapepipointstichcount: EPlayerIndex::map_from_fn(|_epi| SPointStichCount {
+                    n_stich: 0,
+                    n_point: 0,
+                }),
+            },
+            mutate_return!(|rulestatecachechanging, (stich, epi_winner)| {
+                rulestatecachechanging.register_stich(stich, epi_winner);
+            }),
+        )
+    }
+
+    pub fn register_stich(&mut self, stich: &SStich, epi_winner: EPlayerIndex) -> SUnregisterStich {
+        let unregisterstich = SUnregisterStich {
+            epi_winner,
+            n_points_epi_winner_before: self.mapepipointstichcount[epi_winner].n_point,
+        };
+        self.mapepipointstichcount[epi_winner].n_stich += 1;
+        self.mapepipointstichcount[epi_winner].n_point += points_stich(stich);
+        unregisterstich
+    }
+}
+
 pub struct SUnregisterStich {
     epi_winner: EPlayerIndex,
     n_points_epi_winner_before: isize,
@@ -177,20 +209,10 @@ impl SRuleStateCache {
         fn_winner_index: impl Fn(&SStich)->EPlayerIndex,
     ) -> Self {
         assert!(ahand_vecstich_card_count_is_compatible(stichseq, ahand));
-        stichseq.completed_stichs_custom_winner_index(fn_winner_index).fold(
-            Self {
-                changing: SRuleStateCacheChanging {
-                    mapepipointstichcount: EPlayerIndex::map_from_fn(|_epi| SPointStichCount {
-                        n_stich: 0,
-                        n_point: 0,
-                    }),
-                },
-                fixed: SRuleStateCacheFixed::new(stichseq, ahand),
-            },
-            mutate_return!(|rulestatecache, (stich, epi_winner)| {
-                rulestatecache.register_stich(stich, epi_winner);
-            }),
-        )
+        Self {
+            changing: SRuleStateCacheChanging::new(stichseq, ahand, fn_winner_index),
+            fixed: SRuleStateCacheFixed::new(stichseq, ahand),
+        }
     }
 
     fn new_from_gamefinishedstiche(gamefinishedstiche: SStichSequenceGameFinished, fn_winner_index: impl Fn(&SStich)->EPlayerIndex) -> SRuleStateCache {
@@ -204,13 +226,7 @@ impl SRuleStateCache {
     }
 
     pub fn register_stich(&mut self, stich: &SStich, epi_winner: EPlayerIndex) -> SUnregisterStich {
-        let unregisterstich = SUnregisterStich {
-            epi_winner,
-            n_points_epi_winner_before: self.changing.mapepipointstichcount[epi_winner].n_point,
-        };
-        self.changing.mapepipointstichcount[epi_winner].n_stich += 1;
-        self.changing.mapepipointstichcount[epi_winner].n_point += points_stich(stich);
-        unregisterstich
+        self.changing.register_stich(stich, epi_winner)
     }
 
     pub fn unregister_stich(&mut self, unregisterstich: SUnregisterStich) {
