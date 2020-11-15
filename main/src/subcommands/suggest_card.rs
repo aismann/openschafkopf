@@ -366,7 +366,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     } else {
                         let mut vecstich_relevant = Vec::new();
                         let epi_current = unwrap!(stich.current_playerindex());
-                        macro_rules! dbg(($e:expr) => {$e});
+                        //macro_rules! dbg(($e:expr) => {$e});
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
                         for veccard_equivalent in SCluster::new(stichseq).aveccard_equivalent.iter() {
                             for (_b_found, cluster) in veccard_equivalent
@@ -543,19 +543,21 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         );
                     }
                 } else {
-                    // explore_snapshots(
-                    //     &mut ahand,
-                    //     rules,
-                    //     &mut stichseq,
-                    //     &|_, _| (),
-                    //     &SMinReachablePayoutLowerBoundViaHint::new(
-                    //         rules,
-                    //         EPlayerIndex::EPI0,
-                    //         (0, 0),
-                    //         0,
-                    //     ),
-                    //     None,
-                    // );
+                    for (mut stichseq, mut ahand) in ittplstichseqahand {
+                        explore_snapshots(
+                            &mut ahand,
+                            rules,
+                            &mut stichseq,
+                            &|_, _| (),
+                            &SMinReachablePayoutLowerBoundViaHint::new(
+                                rules,
+                                EPlayerIndex::EPI0,
+                                (0, 0),
+                                0,
+                            ),
+                            None,
+                        );
+                    }
                 }
             }
             let vecstep : Vec<_> = unwrap!(clapmatches.value_of("batch")).split(',').map(|str_step| {
