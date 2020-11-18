@@ -6,7 +6,7 @@ use crate::rules::*;
 use crate::cardvector::*;
 use itertools::*;
 use combine::{char::*, *};
-use std::collections::{HashMap};
+use fxhash::FxHashMap as HashMap;
 
 plain_enum_mod!(moderemainingcards, ERemainingCards {_1, _2, _3, _4, _5, _6, _7, _8,});
 
@@ -521,7 +521,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             ) {
                 println!("{:03}% at depth: {}", f_percent_lo, slcstep.len());
                 if let Some((step, slcstep_rest)) = slcstep.split_first() {
-                    let mut map = HashMap::new();
+                    let mut map = Default::default();
                     for (stichseq, ahand) in ittplstichseqahand {
                         map = internal_explore_2(
                             &stichseq,
