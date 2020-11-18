@@ -354,7 +354,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 mut map: HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
             ) -> HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)> {
                 fn find_relevant_stichs(
-                    stichseq: &SStichSequence,
+                    stichseq: &mut SStichSequence,
                     stich: &mut SStich,
                     ahand: &EnumMap<EPlayerIndex, SHand>,
                     rules: &dyn TRules,
@@ -394,16 +394,16 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         ocard_hi = Some(card);
                                     }
                                     stich.push(card);
-                                    let mut stichseq = stichseq.clone();
-                                    stichseq.zugeben(card, rules);
-                                    vecstich_candidate.extend(find_relevant_stichs(
-                                        &stichseq,
-                                        stich,
-                                        ahand,
-                                        rules,
-                                        epi_self,
-                                        fn_is_same_party,
-                                    ));
+                                    stichseq.zugeben_and_restore(card, rules, |stichseq| {
+                                        vecstich_candidate.extend(find_relevant_stichs(
+                                            stichseq,
+                                            stich,
+                                            ahand,
+                                            rules,
+                                            epi_self,
+                                            fn_is_same_party,
+                                        ));
+                                    });
                                     stich.undo_most_recent();
                                 }
                                 dbg!(&vecstich_candidate);
@@ -453,7 +453,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     }
                 }
                 let vecstich = find_relevant_stichs(
-                    stichseq,
+                    &mut stichseq.clone(),
                     &mut stichseq.current_stich().clone(),
                     ahand,
                     rules,
