@@ -360,9 +360,10 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     rules: &dyn TRules,
                     epi_self: EPlayerIndex,
                     fn_is_same_party: &impl Fn(EPlayerIndex, EPlayerIndex)->bool,
-                ) -> Vec<SStich> {
+                    vecstich_result: &mut Vec<SStich>,
+                ) {
                     if stich.is_full() {
-                        vec![stich.clone()] // must yield this one to callers
+                        vecstich_result.push(stich.clone()); // must yield this one to callers
                     } else {
                         let mut vecstich_relevant = Vec::new();
                         let epi_current = unwrap!(stich.current_playerindex());
@@ -395,14 +396,15 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                     }
                                     stich.push(card);
                                     stichseq.zugeben_and_restore(card, rules, |stichseq| {
-                                        vecstich_candidate.extend(find_relevant_stichs(
+                                        find_relevant_stichs(
                                             stichseq,
                                             stich,
                                             ahand,
                                             rules,
                                             epi_self,
                                             fn_is_same_party,
-                                        ));
+                                            &mut vecstich_candidate,
+                                        );
                                     });
                                     stich.undo_most_recent();
                                 }
@@ -449,16 +451,18 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                 }
                             }
                         }
-                        vecstich_relevant
+                        vecstich_result.extend(vecstich_relevant);
                     }
                 }
-                let vecstich = find_relevant_stichs(
+                let mut vecstich = Vec::new();
+                find_relevant_stichs(
                     &mut stichseq.clone(),
                     &mut stichseq.current_stich().clone(),
                     ahand,
                     rules,
                     EPlayerIndex::EPI0,
                     &|epi_lhs, epi_rhs| (epi_lhs==EPlayerIndex::EPI0)==(epi_rhs==EPlayerIndex::EPI0),
+                    &mut vecstich,
                 );
 
 
