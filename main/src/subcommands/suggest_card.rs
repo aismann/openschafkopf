@@ -325,25 +325,24 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 aveccard_equivalent: [Vec<SCard>; 4],
             }
             impl SCluster {
-                fn new(stichseq: &SStichSequence) -> Self {
+                fn new(rules: &dyn TRules, stichseq: &SStichSequence) -> Self {
                     use crate::primitives::card::card_values::*;
-                    let mut aveccard_equivalent = [
+                    let aveccard_equivalent = [
                         vec![EO, GO, HO, SO, EU, GU, HU, SU, HA, HZ, HK, H9, H8, H7],
                         vec![EA, EZ, EK, E9, E8, E7],
                         vec![GA, GZ, GK, G9, G8, G7],
                         vec![SA, SZ, SK, S9, S8, S7],
                     ];
+                    let mut slf = Self {
+                        aveccard_equivalent,
+                    };
                     // eliminate already played cards to close gaps
                     for stich in stichseq.completed_stichs().iter() {
                         for (_epi, card_played) in stich.iter() {
-                            for veccard_equivalent in aveccard_equivalent.iter_mut() {
-                                veccard_equivalent.retain(|card| card!=card_played);
-                            }
+                            slf.get_equiv_mut(rules, *card_played).retain(|card| card!=card_played);
                         }
                     }
-                    Self {
-                        aveccard_equivalent,
-                    }
+                    slf
                 }
                 fn get_equiv(&self, rules: &dyn TRules, card: SCard) -> &Vec<SCard> {
                     use VTrumpfOrFarbe::*;
@@ -353,6 +352,17 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         Farbe(Eichel) => &self.aveccard_equivalent[1],
                         Farbe(Gras) => &self.aveccard_equivalent[2],
                         Farbe(Schelln) => &self.aveccard_equivalent[3],
+                        Farbe(Herz) => panic!("TODO customize per rules"),
+                    }
+                }
+                fn get_equiv_mut(&mut self, rules: &dyn TRules, card: SCard) -> &mut Vec<SCard> {
+                    use VTrumpfOrFarbe::*;
+                    use EFarbe::*;
+                    match rules.trumpforfarbe(card) {
+                        Trumpf => &mut self.aveccard_equivalent[0],
+                        Farbe(Eichel) => &mut self.aveccard_equivalent[1],
+                        Farbe(Gras) => &mut self.aveccard_equivalent[2],
+                        Farbe(Schelln) => &mut self.aveccard_equivalent[3],
                         Farbe(Herz) => panic!("TODO customize per rules"),
                     }
                 }
@@ -406,7 +416,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
                         macro_rules! dbg(($e:expr) => {$e});
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
-                        let cluster = SCluster::new(stichseq);
+                        let cluster = SCluster::new(rules, stichseq);
 
                         while !veccard_allowed.is_empty() {
                             let veccard_equivalent = cluster.get_equiv(rules, veccard_allowed[0]);
