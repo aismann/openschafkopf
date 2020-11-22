@@ -387,28 +387,23 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 impl TStichSize for SStichSize4 {
                     type Next = SStichSize0;
                 }
+                #[inline(always)]
                 fn find_relevant_stichs<
                     StichSize: TStichSize,
                     TFnSameParty: Fn(EPlayerIndex, EPlayerIndex)->bool,
                 >(
                     stichseq: &mut SStichSequence,
-                    stich: &mut SStich,
                     ahand: &EnumMap<EPlayerIndex, SHand>,
                     rules: &dyn TRules,
                     epi_self: EPlayerIndex,
                     fn_is_same_party: &TFnSameParty,
                     vecstich_result: &mut Vec<SStich>,
                 ) {
-                    assert_eq!(stich.size(), StichSize::VALUE);
-                    if stich.is_full() {
-                        assert_eq!(
-                            stich,
-                            unwrap!(stichseq.completed_stichs().last())
-                        );
-                        vecstich_result.push(stich.clone()); // must yield this one to callers
+                    if StichSize::VALUE==EPlayerIndex::SIZE {
+                        vecstich_result.push(unwrap!(stichseq.completed_stichs().last()).clone()); // must yield this one to callers
                     } else {
                         let mut vecstich_relevant = Vec::new();
-                        let epi_current = unwrap!(stich.current_playerindex());
+                        let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
                         macro_rules! dbg(($e:expr) => {$e});
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
                         let cluster = SCluster::new(stichseq);
@@ -440,11 +435,9 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         if ocard_hi.is_none() || points_card(unwrap!(ocard_hi)) < points_card(card) {
                                             ocard_hi = Some(card);
                                         }
-                                        stich.push(card);
                                         stichseq.zugeben_and_restore(card, rules, |stichseq| {
                                             find_relevant_stichs::<StichSize::Next, _>(
                                                 stichseq,
-                                                stich,
                                                 ahand,
                                                 rules,
                                                 epi_self,
@@ -452,7 +445,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                                 &mut vecstich_candidate,
                                             );
                                         });
-                                        stich.undo_most_recent();
                                     }
                                     dbg!(&vecstich_candidate);
                                     assert!(!vecstich_candidate.is_empty());
@@ -505,7 +497,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 let mut vecstich = Vec::new();
                 find_relevant_stichs::<SStichSize0, _>(
                     &mut stichseq.clone(),
-                    &mut stichseq.current_stich().clone(),
                     ahand,
                     rules,
                     EPlayerIndex::EPI0,
