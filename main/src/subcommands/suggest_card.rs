@@ -345,6 +345,17 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         aveccard_equivalent,
                     }
                 }
+                fn get_equiv(&self, rules: &dyn TRules, card: SCard) -> &Vec<SCard> {
+                    use VTrumpfOrFarbe::*;
+                    use EFarbe::*;
+                    match rules.trumpforfarbe(card) {
+                        Trumpf => &self.aveccard_equivalent[0],
+                        Farbe(Eichel) => &self.aveccard_equivalent[1],
+                        Farbe(Gras) => &self.aveccard_equivalent[2],
+                        Farbe(Schelln) => &self.aveccard_equivalent[3],
+                        Farbe(Herz) => panic!("TODO customize per rules"),
+                    }
+                }
             }
             fn internal_explore_2(
                 stichseq: &SStichSequence,
@@ -369,88 +380,94 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         let epi_current = unwrap!(stich.current_playerindex());
                         macro_rules! dbg(($e:expr) => {$e});
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
-                        for veccard_equivalent in SCluster::new(stichseq).aveccard_equivalent.iter() {
-                            for (_b_found, cluster) in veccard_equivalent
-                                .iter()
-                                .group_by(|card| {
-                                    if let Some(i) = veccard_allowed.iter().position(|card_allowed| card_allowed==*card) {
-                                        veccard_allowed.swap_remove(i);
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                })
-                                .into_iter()
-                                .filter(|(b_found, _)| *b_found)
+                        let cluster = SCluster::new(stichseq);
+
+                        while !veccard_allowed.is_empty() {
+                            let veccard_equivalent = cluster.get_equiv(rules, veccard_allowed[0]);
                             {
-
-                                use crate::rules::card_points::*;
-                                let mut vecstich_candidate = Vec::new();
-                                let (mut ocard_lo, mut ocard_hi) = (None, None);
-                                for &card in cluster.unique_by(|card| points_card(**card)) {
-                                    if ocard_lo.is_none() || points_card(unwrap!(ocard_lo)) > points_card(card) {
-                                        ocard_lo = Some(card);
-                                    }
-                                    if ocard_hi.is_none() || points_card(unwrap!(ocard_hi)) < points_card(card) {
-                                        ocard_hi = Some(card);
-                                    }
-                                    stich.push(card);
-                                    stichseq.zugeben_and_restore(card, rules, |stichseq| {
-                                        find_relevant_stichs(
-                                            stichseq,
-                                            stich,
-                                            ahand,
-                                            rules,
-                                            epi_self,
-                                            fn_is_same_party,
-                                            &mut vecstich_candidate,
-                                        );
-                                    });
-                                    stich.undo_most_recent();
-                                }
-                                dbg!(&vecstich_candidate);
-                                assert!(!vecstich_candidate.is_empty());
-                                if dbg!(vecstich_candidate
+                                for (_b_found, cluster) in veccard_equivalent
                                     .iter()
-                                    .map(|stich|
-                                        // TODO is this correct? Do we have to rely on winner_index directly?
-                                        fn_is_same_party(epi_current, rules.winner_index(stich))
-                                    )
-                                    .all_equal()
-                                ) {
-                                    //println!("Merging: {:?}", &vecstich_candidate);
-                                    fn extend_with(
-                                        vecstich: &mut Vec<SStich>,
-                                        itstich: impl IntoIterator<Item=SStich>,
-                                        fn_filter: impl Fn(&SStich)->bool,
+                                    .group_by(|card| {
+                                        if let Some(i) = veccard_allowed.iter().position(|card_allowed| card_allowed==*card) {
+                                            veccard_allowed.swap_remove(i);
+                                            true
+                                        } else {
+                                            false
+                                        }
+                                    })
+                                    .into_iter()
+                                    .filter(|(b_found, _)| *b_found)
+                                {
+
+                                    use crate::rules::card_points::*;
+                                    let mut vecstich_candidate = Vec::new();
+                                    let (mut ocard_lo, mut ocard_hi) = (None, None);
+                                    for &card in cluster.unique_by(|card| points_card(**card)) {
+                                        if ocard_lo.is_none() || points_card(unwrap!(ocard_lo)) > points_card(card) {
+                                            ocard_lo = Some(card);
+                                        }
+                                        if ocard_hi.is_none() || points_card(unwrap!(ocard_hi)) < points_card(card) {
+                                            ocard_hi = Some(card);
+                                        }
+                                        stich.push(card);
+                                        stichseq.zugeben_and_restore(card, rules, |stichseq| {
+                                            find_relevant_stichs(
+                                                stichseq,
+                                                stich,
+                                                ahand,
+                                                rules,
+                                                epi_self,
+                                                fn_is_same_party,
+                                                &mut vecstich_candidate,
+                                            );
+                                        });
+                                        stich.undo_most_recent();
+                                    }
+                                    dbg!(&vecstich_candidate);
+                                    assert!(!vecstich_candidate.is_empty());
+                                    if dbg!(vecstich_candidate
+                                        .iter()
+                                        .map(|stich|
+                                            // TODO is this correct? Do we have to rely on winner_index directly?
+                                            fn_is_same_party(epi_current, rules.winner_index(stich))
+                                        )
+                                        .all_equal()
                                     ) {
-                                        vecstich.extend(itstich
-                                            .into_iter()
-                                            .filter(fn_filter)
-                                            //.inspect(|stich| println!("{}", stich))
-                                        );
-                                    }
-
-                                    { // the following represents a OthersMin player
-                                        if fn_is_same_party(epi_self, rules.winner_index(&vecstich_candidate[0])) {
-                                            extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo));
-                                        } else {
-                                            extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi))
+                                        //println!("Merging: {:?}", &vecstich_candidate);
+                                        fn extend_with(
+                                            vecstich: &mut Vec<SStich>,
+                                            itstich: impl IntoIterator<Item=SStich>,
+                                            fn_filter: impl Fn(&SStich)->bool,
+                                        ) {
+                                            vecstich.extend(itstich
+                                                .into_iter()
+                                                .filter(fn_filter)
+                                                //.inspect(|stich| println!("{}", stich))
+                                            );
                                         }
-                                    }
 
-                                    /*{ // the following represents a MaxPerEpi player
-                                        if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
-                                            extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi));
-                                        } else {
-                                            extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo))
+                                        { // the following represents a OthersMin player
+                                            if fn_is_same_party(epi_self, rules.winner_index(&vecstich_candidate[0])) {
+                                                extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo));
+                                            } else {
+                                                extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi))
+                                            }
                                         }
-                                    }*/
-                                } else {
-                                    vecstich_relevant.extend(vecstich_candidate);
+
+                                        /*{ // the following represents a MaxPerEpi player
+                                            if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
+                                                extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi));
+                                            } else {
+                                                extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo))
+                                            }
+                                        }*/
+                                    } else {
+                                        vecstich_relevant.extend(vecstich_candidate);
+                                    }
                                 }
                             }
                         }
+
                         vecstich_result.extend(vecstich_relevant);
                     }
                 }
