@@ -364,16 +364,47 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 _n_stichseq_bound: usize,
                 mut map: HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
             ) -> HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)> {
-                fn find_relevant_stichs(
+                define_static_value!(pub SStichSize0, usize, 0);
+                define_static_value!(pub SStichSize1, usize, 1);
+                define_static_value!(pub SStichSize2, usize, 2);
+                define_static_value!(pub SStichSize3, usize, 3);
+                define_static_value!(pub SStichSize4, usize, 4);
+                trait TStichSize : TStaticValue<usize> {
+                    type Next: TStichSize;
+                }
+                impl TStichSize for SStichSize0 {
+                    type Next = SStichSize1;
+                }
+                impl TStichSize for SStichSize1 {
+                    type Next = SStichSize2;
+                }
+                impl TStichSize for SStichSize2 {
+                    type Next = SStichSize3;
+                }
+                impl TStichSize for SStichSize3 {
+                    type Next = SStichSize4;
+                }
+                impl TStichSize for SStichSize4 {
+                    type Next = SStichSize0;
+                }
+                fn find_relevant_stichs<
+                    StichSize: TStichSize,
+                    TFnSameParty: Fn(EPlayerIndex, EPlayerIndex)->bool,
+                >(
                     stichseq: &mut SStichSequence,
                     stich: &mut SStich,
                     ahand: &EnumMap<EPlayerIndex, SHand>,
                     rules: &dyn TRules,
                     epi_self: EPlayerIndex,
-                    fn_is_same_party: &impl Fn(EPlayerIndex, EPlayerIndex)->bool,
+                    fn_is_same_party: &TFnSameParty,
                     vecstich_result: &mut Vec<SStich>,
                 ) {
+                    assert_eq!(stich.size(), StichSize::VALUE);
                     if stich.is_full() {
+                        assert_eq!(
+                            stich,
+                            unwrap!(stichseq.completed_stichs().last())
+                        );
                         vecstich_result.push(stich.clone()); // must yield this one to callers
                     } else {
                         let mut vecstich_relevant = Vec::new();
@@ -411,7 +442,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         }
                                         stich.push(card);
                                         stichseq.zugeben_and_restore(card, rules, |stichseq| {
-                                            find_relevant_stichs(
+                                            find_relevant_stichs::<StichSize::Next, _>(
                                                 stichseq,
                                                 stich,
                                                 ahand,
@@ -472,7 +503,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     }
                 }
                 let mut vecstich = Vec::new();
-                find_relevant_stichs(
+                find_relevant_stichs::<SStichSize0, _>(
                     &mut stichseq.clone(),
                     &mut stichseq.current_stich().clone(),
                     ahand,
