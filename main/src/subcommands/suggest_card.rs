@@ -321,48 +321,46 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     ittplcardoutput.map(|tplcardoutput| tplcardoutput.1).fold(vec![], mutate_return!(Vec::extend))
                 }
             }
+            use arrayvec::ArrayVec;
             struct SCluster {
-                aveccard_equivalent: [Vec<SCard>; 4],
+                veccard_trumpf: ArrayVec<[SCard; 14]>,
+                aveccard_farbe: [ArrayVec<[SCard; 6]>; 3],
             }
             impl SCluster {
                 fn new(rules: &dyn TRules, stichseq: &SStichSequence) -> Self {
                     use crate::primitives::card::card_values::*;
-                    let aveccard_equivalent = [
-                        vec![EO, GO, HO, SO, EU, GU, HU, SU, HA, HZ, HK, H9, H8, H7],
-                        vec![EA, EZ, EK, E9, E8, E7],
-                        vec![GA, GZ, GK, G9, G8, G7],
-                        vec![SA, SZ, SK, S9, S8, S7],
-                    ];
                     let mut slf = Self {
-                        aveccard_equivalent,
+                        veccard_trumpf: ArrayVec::from([EO, GO, HO, SO, EU, GU, HU, SU, HA, HZ, HK, H9, H8, H7]),
+                        aveccard_farbe: [
+                            ArrayVec::from([EA, EZ, EK, E9, E8, E7]),
+                            ArrayVec::from([GA, GZ, GK, G9, G8, G7]),
+                            ArrayVec::from([SA, SZ, SK, S9, S8, S7]),
+                        ],
                     };
                     // eliminate already played cards to close gaps
                     for stich in stichseq.completed_stichs().iter() {
                         for (_epi, card_played) in stich.iter() {
-                            slf.get_equiv_mut(rules, *card_played).retain(|card| card!=card_played);
+                            use VTrumpfOrFarbe::*;
+                            use EFarbe::*;
+                            match rules.trumpforfarbe(*card_played) {
+                                Trumpf => slf.veccard_trumpf.retain(|card| card!=card_played),
+                                Farbe(Eichel) => slf.aveccard_farbe[0].retain(|card| card!=card_played),
+                                Farbe(Gras) => slf.aveccard_farbe[1].retain(|card| card!=card_played),
+                                Farbe(Schelln) => slf.aveccard_farbe[2].retain(|card| card!=card_played),
+                                Farbe(Herz) => panic!("TODO customize per rules"),
+                            }
                         }
                     }
                     slf
                 }
-                fn get_equiv(&self, rules: &dyn TRules, card: SCard) -> &Vec<SCard> {
+                fn get_equiv(&self, rules: &dyn TRules, card: SCard) -> &[SCard] {
                     use VTrumpfOrFarbe::*;
                     use EFarbe::*;
                     match rules.trumpforfarbe(card) {
-                        Trumpf => &self.aveccard_equivalent[0],
-                        Farbe(Eichel) => &self.aveccard_equivalent[1],
-                        Farbe(Gras) => &self.aveccard_equivalent[2],
-                        Farbe(Schelln) => &self.aveccard_equivalent[3],
-                        Farbe(Herz) => panic!("TODO customize per rules"),
-                    }
-                }
-                fn get_equiv_mut(&mut self, rules: &dyn TRules, card: SCard) -> &mut Vec<SCard> {
-                    use VTrumpfOrFarbe::*;
-                    use EFarbe::*;
-                    match rules.trumpforfarbe(card) {
-                        Trumpf => &mut self.aveccard_equivalent[0],
-                        Farbe(Eichel) => &mut self.aveccard_equivalent[1],
-                        Farbe(Gras) => &mut self.aveccard_equivalent[2],
-                        Farbe(Schelln) => &mut self.aveccard_equivalent[3],
+                        Trumpf => &self.veccard_trumpf,
+                        Farbe(Eichel) => &self.aveccard_farbe[0],
+                        Farbe(Gras) => &self.aveccard_farbe[1],
+                        Farbe(Schelln) => &self.aveccard_farbe[2],
                         Farbe(Herz) => panic!("TODO customize per rules"),
                     }
                 }
