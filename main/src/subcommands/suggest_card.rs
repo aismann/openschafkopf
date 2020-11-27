@@ -555,7 +555,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                 |stich| debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)),
                             ),
                         ),
-                        (stichseq.clone(), ahand.clone())
+                        (stichseq, ahand)
                     );
                 }
                 let n_map_len_intermediate = map.len();
