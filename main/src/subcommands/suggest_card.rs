@@ -390,29 +390,20 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 _n_stichseq_bound: usize,
                 mut map: HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
             ) -> HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)> {
-                define_static_value!(pub SStichSize0, usize, 0);
-                define_static_value!(pub SStichSize1, usize, 1);
-                define_static_value!(pub SStichSize2, usize, 2);
-                define_static_value!(pub SStichSize3, usize, 3);
-                define_static_value!(pub SStichSize4, usize, 4);
                 trait TStichSize : TStaticValue<usize> {
                     type Next: TStichSize;
                 }
-                impl TStichSize for SStichSize0 {
-                    type Next = SStichSize1;
-                }
-                impl TStichSize for SStichSize1 {
-                    type Next = SStichSize2;
-                }
-                impl TStichSize for SStichSize2 {
-                    type Next = SStichSize3;
-                }
-                impl TStichSize for SStichSize3 {
-                    type Next = SStichSize4;
-                }
-                impl TStichSize for SStichSize4 {
-                    type Next = SStichSize0;
-                }
+                macro_rules! define_stichsize{($stichsize:ident, $n:expr, $stichsize_next:ident) => {
+                    define_static_value!(pub $stichsize, usize, $n);
+                    impl TStichSize for $stichsize {
+                        type Next = $stichsize_next;
+                    }
+                }};
+                define_stichsize!(SStichSize0, 0, SStichSize1);
+                define_stichsize!(SStichSize1, 1, SStichSize2);
+                define_stichsize!(SStichSize2, 2, SStichSize3);
+                define_stichsize!(SStichSize3, 3, SStichSize4);
+                define_stichsize!(SStichSize4, 4, SStichSize0);
                 #[inline(always)]
                 fn find_relevant_stichs<
                     StichSize: TStichSize,
