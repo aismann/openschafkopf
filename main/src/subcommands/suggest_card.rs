@@ -10,6 +10,54 @@ use fxhash::FxHashMap as HashMap;
 
 plain_enum_mod!(moderemainingcards, ERemainingCards {_1, _2, _3, _4, _5, _6, _7, _8,});
 
+type SWinnerIndexCacheArr<T> = EnumMap<EPlayerIndex, [[[[T; 8]; 8]; 8]; 8]>; // TODO "8" should be unwrap!(EPlayerIndex::values().map(|ekurzlang| ekurzlang.cards_per_player()).max())
+
+struct SWinnerIndexCache {
+    mapcardi: EnumMap<SCard, usize>,
+    aaaaepi: SWinnerIndexCacheArr<EPlayerIndex>,
+    //if_dbg_else!({aaaab: SWinnerIndexCacheArr<bool>}{}),
+}
+
+impl SWinnerIndexCache {
+    fn new(ahand: &EnumMap<EPlayerIndex, SHand>, rules: &dyn TRules) -> Self {
+        let aaaaepi = EPlayerIndex::map_from_fn(|_| [[[[EPlayerIndex::EPI0; 8]; 8]; 8]; 8]);
+        let mut mapcardi = SCard::map_from_fn(|_| 1000);
+        //if_dbg_else!(let mut aaaab = Default::default());
+        for epi in EPlayerIndex::values() {
+            for (i_card, card) in ahand[epi].cards().iter().enumerate() {
+                mapcardi[*card] = i_card;
+            }
+        }
+        let mut slf = Self {
+            aaaaepi,
+            mapcardi,
+            //if_dbg_else!({aaaab,}{})
+        };
+        for epi in EPlayerIndex::values() {
+            for card_0 in ahand[epi.wrapping_add(0)].cards().iter().copied() {
+                for card_1 in ahand[epi.wrapping_add(1)].cards().iter().copied() {
+                    for card_2 in ahand[epi.wrapping_add(2)].cards().iter().copied() {
+                        for card_3 in ahand[epi.wrapping_add(3)].cards().iter().copied() {
+                            let stich = SStich::new_full(epi, [card_0, card_1, card_2, card_3]);
+                            use EPlayerIndex::*;
+                            slf.aaaaepi[epi][slf.mapcardi[stich[EPI0]]][slf.mapcardi[stich[EPI1]]][slf.mapcardi[stich[EPI2]]][slf.mapcardi[stich[EPI3]]] = rules.winner_index(&stich);
+                            //if_dbg_else!(aaaab[card_0][card_1][card_2][card_3]=true);
+                            debug_assert_eq!(rules.winner_index(&stich), slf.get(&stich));
+                        }
+                    }
+                }
+            }
+        }
+        slf
+    }
+    fn get(&self, stich: &SStich) -> EPlayerIndex {
+        let idx = |epi: EPlayerIndex| self.mapcardi[stich[epi]];
+        use EPlayerIndex::*;
+        //debug_assert!(self.aaaab[idx(EPI0)][idx(EPI1)][idx(EPI2)][idx(EPI3)]);
+        self.aaaaepi[stich.first_playerindex()][idx(EPI0)][idx(EPI1)][idx(EPI2)][idx(EPI3)]
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum VNumVal {
     Const(usize),
@@ -369,6 +417,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 stichseq: &SStichSequence,
                 ahand: &EnumMap<EPlayerIndex, SHand>,
                 rules: &dyn TRules,
+                winidxcache: &SWinnerIndexCache,
                 _n_stichseq_bound: usize,
                 mut map: HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
             ) -> HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)> {
@@ -403,6 +452,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     stichseq: &mut SStichSequence,
                     ahand: &EnumMap<EPlayerIndex, SHand>,
                     rules: &dyn TRules,
+                    winidxcache: &SWinnerIndexCache,
                     epi_self: EPlayerIndex,
                     fn_is_same_party: &TFnSameParty,
                     vecstich_result: &mut Vec<SStich>,
@@ -443,11 +493,12 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         if ocard_hi.is_none() || points_card(unwrap!(ocard_hi)) < points_card(card) {
                                             ocard_hi = Some(card);
                                         }
-                                        stichseq.zugeben_and_restore(card, rules, |stichseq| {
+                                        stichseq.zugeben_and_restore_custom_winner_index(card, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
                                             find_relevant_stichs::<StichSize::Next, _>(
                                                 stichseq,
                                                 ahand,
                                                 rules,
+                                                winidxcache,
                                                 epi_self,
                                                 fn_is_same_party,
                                                 &mut vecstich_candidate,
@@ -460,7 +511,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         .iter()
                                         .map(|stich|
                                             // TODO is this correct? Do we have to rely on winner_index directly?
-                                            fn_is_same_party(epi_current, rules.winner_index(stich))
+                                            fn_is_same_party(epi_current, debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)))
                                         )
                                         .all_equal()
                                     ) {
@@ -478,7 +529,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         }
 
                                         { // the following represents a OthersMin player
-                                            if fn_is_same_party(epi_self, rules.winner_index(&vecstich_candidate[0])) {
+                                            if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_candidate[0]), rules.winner_index(&vecstich_candidate[0]))) {
                                                 extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo));
                                             } else {
                                                 extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi))
@@ -507,6 +558,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     &mut stichseq.clone(),
                     ahand,
                     rules,
+                    winidxcache,
                     EPlayerIndex::EPI0,
                     &|epi_lhs, epi_rhs| (epi_lhs==EPlayerIndex::EPI0)==(epi_rhs==EPlayerIndex::EPI0),
                     &mut vecstich,
@@ -520,7 +572,9 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     assert_eq!(stichseq.current_stich().first_playerindex(), stich.first_playerindex());
                     let mut ahand = ahand.clone();
                     for (epi, &card) in stich.iter() {
-                        stichseq.zugeben(card, rules);
+                        stichseq.zugeben_custom_winner_index(card, |stich| {
+                            debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich))
+                        });
                         ahand[epi].play_card(card);
                     }
                     map.insert(
@@ -529,7 +583,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                             &SRuleStateCacheChanging::new(
                                 &stichseq,
                                 &ahand,
-                                |stich| rules.winner_index(stich),
+                                |stich| debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)),
                             ),
                         ),
                         (stichseq.clone(), ahand.clone())
@@ -566,6 +620,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             fn doit(
                 ittplstichseqahand: impl Iterator<Item=(SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
                 rules: &dyn TRules,
+                winidxcache: &SWinnerIndexCache,
                 slcstep: &[SStep],
                 f_percent_lo: f32,
                 f_percent_hi: f32,
@@ -578,6 +633,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                             &stichseq,
                             &ahand,
                             rules,
+                            winidxcache,
                             step.i_stichseq_depth,
                             map,
                         );
@@ -588,6 +644,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         doit(
                             Box::new(chunk.map(|(_, (stichseq, ahand))| (stichseq, ahand))) as Box<dyn Iterator<Item=(SStichSequence, EnumMap<EPlayerIndex, SHand>)>>,
                             rules,
+                            winidxcache,
                             slcstep_rest,
                             percentage(i_chunk),
                             percentage(i_chunk + 1),
@@ -618,6 +675,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             doit(
                 std::iter::once((SStichSequence::new(EKurzLang::Lang), ahand.clone())),
                 rules,
+                &SWinnerIndexCache::new(&ahand, rules),
                 &vecstep,
                 0.,
                 100.,

@@ -384,11 +384,11 @@ impl SStichSequence {
         self.zugeben_custom_winner_index(card, |stich| rules.winner_index(stich));
     }
 
-    pub fn zugeben_and_restore<R>(&mut self, card: SCard, rules: &dyn TRules, func: impl FnOnce(&mut Self)->R) -> R {
+    pub fn zugeben_and_restore_custom_winner_index<R>(&mut self, card: SCard, fn_winner_index: impl FnOnce(&SStich)->EPlayerIndex, func: impl FnOnce(&mut Self)->R) -> R {
         #[cfg(debug_assertions)]self.assert_invariant();
         let n_len = self.vecstich.len();
         assert!(!self.current_stich().is_full());
-        self.zugeben(card, rules);
+        self.zugeben_custom_winner_index(card, fn_winner_index);
         let r = func(self);
         if self.current_stich().is_empty() {
             unwrap!(self.vecstich.pop());
@@ -398,6 +398,14 @@ impl SStichSequence {
         debug_assert_eq!(n_len, self.vecstich.len());
         #[cfg(debug_assertions)]self.assert_invariant();
         r
+    }
+
+    pub fn zugeben_and_restore<R>(&mut self, card: SCard, rules: &dyn TRules, func: impl FnOnce(&mut Self)->R) -> R {
+        self.zugeben_and_restore_custom_winner_index(
+            card,
+            |stich| rules.winner_index(stich),
+            func,
+        )
     }
 
     pub fn visible_stichs(&self) -> &[SStich] {
