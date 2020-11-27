@@ -39,7 +39,6 @@ impl SWinnerIndexCache {
                     for card_2 in ahand[epi.wrapping_add(2)].cards().iter().copied() {
                         for card_3 in ahand[epi.wrapping_add(3)].cards().iter().copied() {
                             let stich = SStich::new_full(epi, [card_0, card_1, card_2, card_3]);
-                            use EPlayerIndex::*;
                             let slccard = stich.elements_in_order();
                             slf.aaaaepi[epi][slf.mapcardi[slccard[0]]][slf.mapcardi[slccard[1]]][slf.mapcardi[slccard[2]]][slf.mapcardi[slccard[3]]] = rules.winner_index(&stich);
                             //if_dbg_else!(aaaab[card_0][card_1][card_2][card_3]=true);
@@ -337,35 +336,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         },
                         epi_current: stichseq.current_stich().first_playerindex(),
                     }
-                }
-            }
-            struct SEquivalentStichSeq {
-                n_stichseq_bound: usize,
-            };
-            impl TForEachSnapshot for SEquivalentStichSeq {
-                type Output = Vec<(SBeginning, SStichSequence, EnumMap<EPlayerIndex, SHand>)>;
-                fn final_output(&self, slcstich: SStichSequenceGameFinished, rulestatecache: &SRuleStateCache) -> Self::Output {
-                    vec![(
-                        SBeginning::new(slcstich.get(), &rulestatecache.changing),
-                        slcstich.get().clone(),
-                        EPlayerIndex::map_from_fn(|_epi| { SHand::new_from_vec(Default::default()) })
-                    )]
-                }
-                fn pruned_output(&self, stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>, rulestatecache: &SRuleStateCache) -> Option<Self::Output> {
-                    if_then_some!(stichseq.completed_stichs().len()==self.n_stichseq_bound,
-                        vec![(
-                            SBeginning::new(stichseq, &rulestatecache.changing),
-                            stichseq.clone(),
-                            ahand.clone(),
-                        )]
-                    )
-                }
-                fn combine_outputs<ItTplCardOutput: Iterator<Item=(SCard, Self::Output)>>(
-                    &self,
-                    _epi_card: EPlayerIndex,
-                    ittplcardoutput: ItTplCardOutput,
-                ) -> Self::Output {
-                    ittplcardoutput.map(|tplcardoutput| tplcardoutput.1).fold(vec![], mutate_return!(Vec::extend))
                 }
             }
             use arrayvec::ArrayVec;
