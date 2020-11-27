@@ -40,7 +40,8 @@ impl SWinnerIndexCache {
                         for card_3 in ahand[epi.wrapping_add(3)].cards().iter().copied() {
                             let stich = SStich::new_full(epi, [card_0, card_1, card_2, card_3]);
                             use EPlayerIndex::*;
-                            slf.aaaaepi[epi][slf.mapcardi[stich[EPI0]]][slf.mapcardi[stich[EPI1]]][slf.mapcardi[stich[EPI2]]][slf.mapcardi[stich[EPI3]]] = rules.winner_index(&stich);
+                            let slccard = stich.elements_in_order();
+                            slf.aaaaepi[epi][slf.mapcardi[slccard[0]]][slf.mapcardi[slccard[1]]][slf.mapcardi[slccard[2]]][slf.mapcardi[slccard[3]]] = rules.winner_index(&stich);
                             //if_dbg_else!(aaaab[card_0][card_1][card_2][card_3]=true);
                             debug_assert_eq!(rules.winner_index(&stich), slf.get(&stich));
                         }
@@ -51,10 +52,8 @@ impl SWinnerIndexCache {
         slf
     }
     fn get(&self, stich: &SStich) -> EPlayerIndex {
-        let idx = |epi: EPlayerIndex| self.mapcardi[stich[epi]];
-        use EPlayerIndex::*;
-        //debug_assert!(self.aaaab[idx(EPI0)][idx(EPI1)][idx(EPI2)][idx(EPI3)]);
-        self.aaaaepi[stich.first_playerindex()][idx(EPI0)][idx(EPI1)][idx(EPI2)][idx(EPI3)]
+        let slccard = stich.elements_in_order();
+        self.aaaaepi[stich.first_playerindex()][self.mapcardi[slccard[0]]][self.mapcardi[slccard[1]]][self.mapcardi[slccard[2]]][self.mapcardi[slccard[3]]]
     }
 }
 

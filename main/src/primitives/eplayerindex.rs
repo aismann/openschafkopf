@@ -116,6 +116,9 @@ impl<T, PlayerIndex: TStaticOrDynamicValue<EPlayerIndex>+Copy> SPlayersInRound<T
         assert!(!self.is_empty());
         &self[self.epi_first.value()]
     }
+    pub fn elements_in_order(&self) -> &[T] {
+        &self.vect
+    }
     pub fn iter(&self) -> SPlayersInRoundIterator<slice::Iter<T>> {
         SPlayersInRoundIterator {
             iter: self.vect.iter(),
