@@ -485,7 +485,16 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                     use crate::rules::card_points::*;
                                     let mut vecstich_candidate = Vec::new();
                                     let (mut ocard_lo, mut ocard_hi) = (None, None);
-                                    for &card in cluster.unique_by(|card| points_card(**card)) {
+                                    let mut ab_points_seen = [false; 12];
+                                    for &card in cluster.filter(|card| {
+                                        let b_seen : &mut bool = &mut ab_points_seen[points_card(**card).as_num::<usize>()];
+                                        if *b_seen {
+                                            return false;
+                                        } else {
+                                            *b_seen = true;
+                                            return true;
+                                        }
+                                    }) {
                                         if ocard_lo.is_none() || points_card(unwrap!(ocard_lo)) > points_card(card) {
                                             ocard_lo = Some(card);
                                         }
