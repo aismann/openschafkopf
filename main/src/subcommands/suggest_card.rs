@@ -383,7 +383,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 }
             }
             fn internal_explore_2(
-                stichseq: &SStichSequence,
+                stichseq: &mut SStichSequence,
                 ahand: &EnumMap<EPlayerIndex, SHand>,
                 rules: &dyn TRules,
                 winidxcache: &SWinnerIndexCache,
@@ -524,7 +524,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 }
                 let mut vecstich = Vec::new();
                 find_relevant_stichs::<SStichSize0, _>(
-                    &mut stichseq.clone(),
+                    stichseq,
                     ahand,
                     rules,
                     winidxcache,
@@ -597,17 +597,16 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             ) {
                 println!("{:03}% at depth: {}", f_percent_lo, slcstep.len());
                 if let Some((step, slcstep_rest)) = slcstep.split_first() {
-                    let mut map = Default::default();
-                    for (stichseq, ahand) in ittplstichseqahand {
-                        map = internal_explore_2(
-                            &stichseq,
+                    let map = ittplstichseqahand.fold(Default::default(), |map, (mut stichseq, ahand)| {
+                        internal_explore_2(
+                            &mut stichseq,
                             &ahand,
                             rules,
                             winidxcache,
                             step.i_stichseq_depth,
                             map,
-                        );
-                    }
+                        )
+                    });
                     let f_chunks = (map.len() / step.n_batch + 1) as f32;
                     let percentage = |i_chunk| (i_chunk as f32/f_chunks)*(f_percent_hi-f_percent_lo)+f_percent_lo;
                     for (i_chunk, chunk) in map.into_iter().chunks(step.n_batch).into_iter().enumerate() {
