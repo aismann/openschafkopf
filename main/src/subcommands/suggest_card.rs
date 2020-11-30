@@ -413,6 +413,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     ahand: &EnumMap<EPlayerIndex, SHand>,
                     rules: &dyn TRules,
                     winidxcache: &SWinnerIndexCache,
+                    cluster: &SCluster,
                     epi_self: EPlayerIndex,
                     fn_is_same_party: &TFnSameParty,
                     vecstich_result: &mut Vec<SStich>,
@@ -424,12 +425,10 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
                         macro_rules! dbg(($e:expr) => {$e});
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
-                        let cluster = SCluster::new(rules, stichseq);
-
                         while !veccard_allowed.is_empty() {
                             let veccard_equivalent = cluster.get_equiv(rules, veccard_allowed[0]);
                             {
-                                for (_b_found, cluster) in veccard_equivalent
+                                for (_b_found, groupcard) in veccard_equivalent
                                     .iter()
                                     .group_by(|card| {
                                         if let Some(i) = veccard_allowed.iter().position(|card_allowed| card_allowed==*card) {
@@ -447,7 +446,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                     let mut vecstich_candidate = Vec::new();
                                     let (mut ocard_lo, mut ocard_hi) = (None, None);
                                     let mut ab_points_seen = [false; 12];
-                                    for &card in cluster.filter(|card| {
+                                    for &card in groupcard.filter(|card| {
                                         let b_seen : &mut bool = &mut ab_points_seen[points_card(**card).as_num::<usize>()];
                                         if *b_seen {
                                             return false;
@@ -468,6 +467,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                                 ahand,
                                                 rules,
                                                 winidxcache,
+                                                cluster,
                                                 epi_self,
                                                 fn_is_same_party,
                                                 &mut vecstich_candidate,
@@ -528,6 +528,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     ahand,
                     rules,
                     winidxcache,
+                    &SCluster::new(rules, stichseq),
                     EPlayerIndex::EPI0,
                     &|epi_lhs, epi_rhs| (epi_lhs==EPlayerIndex::EPI0)==(epi_rhs==EPlayerIndex::EPI0),
                     &mut vecstich,
