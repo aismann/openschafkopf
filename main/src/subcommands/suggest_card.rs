@@ -421,7 +421,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     if StichSize::VALUE==EPlayerIndex::SIZE {
                         vecstich_result.push(unwrap!(stichseq.completed_stichs().last()).clone()); // must yield this one to callers
                     } else {
-                        let mut vecstich_relevant = Vec::new();
+                        let mut vecstich_relevant = Vec::with_capacity(4096);
                         let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
                         macro_rules! dbg(($e:expr) => {$e});
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
@@ -443,7 +443,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                 {
 
                                     use crate::rules::card_points::*;
-                                    let mut vecstich_candidate = Vec::new();
+                                    let mut vecstich_candidate = Vec::with_capacity(4086);
                                     let (mut ocard_lo, mut ocard_hi) = (None, None);
                                     let mut ab_points_seen = [false; 12];
                                     for &card in groupcard.filter(|card| {
@@ -522,7 +522,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         vecstich_result.extend(vecstich_relevant);
                     }
                 }
-                let mut vecstich = Vec::new();
+                let mut vecstich = Vec::with_capacity(4096);
                 find_relevant_stichs::<SStichSize0, _>(
                     stichseq,
                     ahand,
