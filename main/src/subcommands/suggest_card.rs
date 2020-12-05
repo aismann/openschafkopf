@@ -421,7 +421,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     if StichSize::VALUE==EPlayerIndex::SIZE {
                         vecstich_result.push(unwrap!(stichseq.completed_stichs().last()).clone()); // must yield this one to callers
                     } else {
-                        let mut vecstich_relevant = Vec::with_capacity(4096);
                         let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
                         macro_rules! dbg(($e:expr) => {$e});
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
@@ -499,27 +498,25 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
 
                                         { // the following represents a OthersMin player
                                             if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_candidate[0]), rules.winner_index(&vecstich_candidate[0]))) {
-                                                extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo));
+                                                extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo));
                                             } else {
-                                                extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi))
+                                                extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi))
                                             }
                                         }
 
                                         /*{ // the following represents a MaxPerEpi player
                                             if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
-                                                extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi));
+                                                extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi));
                                             } else {
-                                                extend_with(&mut vecstich_relevant, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo))
+                                                extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo))
                                             }
                                         }*/
                                     } else {
-                                        vecstich_relevant.extend(vecstich_candidate);
+                                        vecstich_result.extend(vecstich_candidate);
                                     }
                                 }
                             }
                         }
-
-                        vecstich_result.extend(vecstich_relevant);
                     }
                 }
                 let mut vecstich = Vec::with_capacity(4096);
