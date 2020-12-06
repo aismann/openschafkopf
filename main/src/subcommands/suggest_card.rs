@@ -427,110 +427,108 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
                         while !veccard_allowed.is_empty() {
                             let veccard_equivalent = cluster.get_equiv(rules, veccard_allowed[0]);
-                            {
-                                for (_b_found, groupcard) in veccard_equivalent
-                                    .iter()
-                                    .group_by(|card| {
-                                        if let Some(i) = veccard_allowed.iter().position(|card_allowed| card_allowed==*card) {
-                                            veccard_allowed.swap_remove(i);
-                                            true
-                                        } else {
-                                            false
-                                        }
-                                    })
-                                    .into_iter()
-                                    .filter(|(b_found, _)| *b_found)
-                                {
-
-                                    use crate::rules::card_points::*;
-                                    let n_stich_before = vecstich_result.len();
-                                    let (mut ocard_lo, mut ocard_hi) = (None, None);
-                                    let mut ab_points_seen = [false; 12];
-                                    for &card in groupcard.filter(|card| {
-                                        let b_seen : &mut bool = &mut ab_points_seen[points_card(**card).as_num::<usize>()];
-                                        if *b_seen {
-                                            return false;
-                                        } else {
-                                            *b_seen = true;
-                                            return true;
-                                        }
-                                    }) {
-                                        if ocard_lo.is_none() || points_card(unwrap!(ocard_lo)) > points_card(card) {
-                                            ocard_lo = Some(card);
-                                        }
-                                        if ocard_hi.is_none() || points_card(unwrap!(ocard_hi)) < points_card(card) {
-                                            ocard_hi = Some(card);
-                                        }
-                                        stichseq.zugeben_and_restore_custom_winner_index(card, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
-                                            find_relevant_stichs::<StichSize::Next, _>(
-                                                stichseq,
-                                                ahand,
-                                                rules,
-                                                winidxcache,
-                                                cluster,
-                                                epi_self,
-                                                fn_is_same_party,
-                                                vecstich_result,
-                                            );
-                                        });
+                            for (_b_found, groupcard) in veccard_equivalent
+                                .iter()
+                                .group_by(|card| {
+                                    if let Some(i) = veccard_allowed.iter().position(|card_allowed| card_allowed==*card) {
+                                        veccard_allowed.swap_remove(i);
+                                        true
+                                    } else {
+                                        false
                                     }
-                                    assert!(n_stich_before < vecstich_result.len());
-                                    if dbg!(vecstich_result[n_stich_before..]
-                                        .iter()
-                                        .map(|stich|
-                                            // TODO is this correct? Do we have to rely on winner_index directly?
-                                            fn_is_same_party(epi_current, debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)))
-                                        )
-                                        .all_equal()
+                                })
+                                .into_iter()
+                                .filter(|(b_found, _)| *b_found)
+                            {
+
+                                use crate::rules::card_points::*;
+                                let n_stich_before = vecstich_result.len();
+                                let (mut ocard_lo, mut ocard_hi) = (None, None);
+                                let mut ab_points_seen = [false; 12];
+                                for &card in groupcard.filter(|card| {
+                                    let b_seen : &mut bool = &mut ab_points_seen[points_card(**card).as_num::<usize>()];
+                                    if *b_seen {
+                                        return false;
+                                    } else {
+                                        *b_seen = true;
+                                        return true;
+                                    }
+                                }) {
+                                    if ocard_lo.is_none() || points_card(unwrap!(ocard_lo)) > points_card(card) {
+                                        ocard_lo = Some(card);
+                                    }
+                                    if ocard_hi.is_none() || points_card(unwrap!(ocard_hi)) < points_card(card) {
+                                        ocard_hi = Some(card);
+                                    }
+                                    stichseq.zugeben_and_restore_custom_winner_index(card, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
+                                        find_relevant_stichs::<StichSize::Next, _>(
+                                            stichseq,
+                                            ahand,
+                                            rules,
+                                            winidxcache,
+                                            cluster,
+                                            epi_self,
+                                            fn_is_same_party,
+                                            vecstich_result,
+                                        );
+                                    });
+                                }
+                                assert!(n_stich_before < vecstich_result.len());
+                                if dbg!(vecstich_result[n_stich_before..]
+                                    .iter()
+                                    .map(|stich|
+                                        // TODO is this correct? Do we have to rely on winner_index directly?
+                                        fn_is_same_party(epi_current, debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)))
+                                    )
+                                    .all_equal()
+                                ) {
+                                    fn extend_with(
+                                        vecstich: &mut Vec<SStich>,
+                                        n_stich_before: usize,
+                                        fn_filter: impl Fn(&SStich)->bool,
                                     ) {
-                                        fn extend_with(
-                                            vecstich: &mut Vec<SStich>,
-                                            n_stich_before: usize,
-                                            fn_filter: impl Fn(&SStich)->bool,
-                                        ) {
-                                            // adapted from Vec::retain
-                                            let len = vecstich.len();
-                                            let mut del = 0;
-                                            {
-                                                let v = &mut **vecstich;
-                                                for i in n_stich_before..len {
-                                                    if !fn_filter(&v[i]) {
-                                                        del += 1;
-                                                    } else if del > 0 {
-                                                        v.swap(i - del, i); // TODO would it be more efficient to simply clone from i to i-del? (Profiling did not show significant improvement.)
-                                                    }
+                                        // adapted from Vec::retain
+                                        let len = vecstich.len();
+                                        let mut del = 0;
+                                        {
+                                            let v = &mut **vecstich;
+                                            for i in n_stich_before..len {
+                                                if !fn_filter(&v[i]) {
+                                                    del += 1;
+                                                } else if del > 0 {
+                                                    v.swap(i - del, i); // TODO would it be more efficient to simply clone from i to i-del? (Profiling did not show significant improvement.)
                                                 }
                                             }
-                                            if del > 0 {
-                                                vecstich.truncate(len - del);
-                                            }
-                                            // let mut i = 0;
-                                            // vecstich.retain(|stich| {
-                                            //     if i < n_stich_before {
-                                            //         i += 1;
-                                            //         true
-                                            //     } else {
-                                            //         fn_filter(stich)
-                                            //     }
-                                            // });
                                         }
-
-                                        { // the following represents a OthersMin player
-                                            if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_result[n_stich_before]), rules.winner_index(&vecstich_result[n_stich_before]))) {
-                                                extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==unwrap!(ocard_lo));
-                                            } else {
-                                                extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==unwrap!(ocard_hi))
-                                            }
+                                        if del > 0 {
+                                            vecstich.truncate(len - del);
                                         }
-
-                                        /*{ // the following represents a MaxPerEpi player
-                                            if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
-                                                extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi));
-                                            } else {
-                                                extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo))
-                                            }
-                                        }*/
+                                        // let mut i = 0;
+                                        // vecstich.retain(|stich| {
+                                        //     if i < n_stich_before {
+                                        //         i += 1;
+                                        //         true
+                                        //     } else {
+                                        //         fn_filter(stich)
+                                        //     }
+                                        // });
                                     }
+
+                                    { // the following represents a OthersMin player
+                                        if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_result[n_stich_before]), rules.winner_index(&vecstich_result[n_stich_before]))) {
+                                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==unwrap!(ocard_lo));
+                                        } else {
+                                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==unwrap!(ocard_hi))
+                                        }
+                                    }
+
+                                    /*{ // the following represents a MaxPerEpi player
+                                        if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
+                                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi));
+                                        } else {
+                                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo))
+                                        }
+                                    }*/
                                 }
                             }
                         }
