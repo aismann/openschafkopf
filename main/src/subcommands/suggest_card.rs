@@ -443,7 +443,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                 {
 
                                     use crate::rules::card_points::*;
-                                    let mut vecstich_candidate = Vec::with_capacity(4086);
+                                    let n_stich_before = vecstich_result.len();
                                     let (mut ocard_lo, mut ocard_hi) = (None, None);
                                     let mut ab_points_seen = [false; 12];
                                     for &card in groupcard.filter(|card| {
@@ -470,13 +470,12 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                                 cluster,
                                                 epi_self,
                                                 fn_is_same_party,
-                                                &mut vecstich_candidate,
+                                                vecstich_result,
                                             );
                                         });
                                     }
-                                    dbg!(&vecstich_candidate);
-                                    assert!(!vecstich_candidate.is_empty());
-                                    if dbg!(vecstich_candidate
+                                    assert!(n_stich_before < vecstich_result.len());
+                                    if dbg!(vecstich_result[n_stich_before..]
                                         .iter()
                                         .map(|stich|
                                             // TODO is this correct? Do we have to rely on winner_index directly?
@@ -484,24 +483,43 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         )
                                         .all_equal()
                                     ) {
-                                        //println!("Merging: {:?}", &vecstich_candidate);
                                         fn extend_with(
                                             vecstich: &mut Vec<SStich>,
-                                            itstich: impl IntoIterator<Item=SStich>,
+                                            n_stich_before: usize,
                                             fn_filter: impl Fn(&SStich)->bool,
                                         ) {
-                                            vecstich.extend(itstich
-                                                .into_iter()
-                                                .filter(fn_filter)
-                                                //.inspect(|stich| println!("{}", stich))
-                                            );
+                                            // adapted from Vec::retain
+                                            let len = vecstich.len();
+                                            let mut del = 0;
+                                            {
+                                                let v = &mut **vecstich;
+                                                for i in n_stich_before..len {
+                                                    if !fn_filter(&v[i]) {
+                                                        del += 1;
+                                                    } else if del > 0 {
+                                                        v.swap(i - del, i);
+                                                    }
+                                                }
+                                            }
+                                            if del > 0 {
+                                                vecstich.truncate(len - del);
+                                            }
+                                            // let mut i = 0;
+                                            // vecstich.retain(|stich| {
+                                            //     if i < n_stich_before {
+                                            //         i += 1;
+                                            //         true
+                                            //     } else {
+                                            //         fn_filter(stich)
+                                            //     }
+                                            // });
                                         }
 
                                         { // the following represents a OthersMin player
-                                            if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_candidate[0]), rules.winner_index(&vecstich_candidate[0]))) {
-                                                extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo));
+                                            if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_result[n_stich_before]), rules.winner_index(&vecstich_result[n_stich_before]))) {
+                                                extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==unwrap!(ocard_lo));
                                             } else {
-                                                extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi))
+                                                extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==unwrap!(ocard_hi))
                                             }
                                         }
 
@@ -512,8 +530,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                                 extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo))
                                             }
                                         }*/
-                                    } else {
-                                        vecstich_result.extend(vecstich_candidate);
                                     }
                                 }
                             }
