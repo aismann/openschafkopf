@@ -497,7 +497,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                                     if !fn_filter(&v[i]) {
                                                         del += 1;
                                                     } else if del > 0 {
-                                                        v.swap(i - del, i);
+                                                        v.swap(i - del, i); // TODO would it be more efficient to simply clone from i to i-del? (Profiling did not show significant improvement.)
                                                     }
                                                 }
                                             }
