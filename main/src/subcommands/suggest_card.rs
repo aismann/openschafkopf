@@ -438,7 +438,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                             while let Some(card_allowed) = itcard.find(|card| veccard_allowed.contains(*card)) {
                                 use crate::rules::card_points::*;
                                 let n_stich_before = vecstich_result.len();
-                                let (mut ocard_lo, mut ocard_hi) = (None, None);
+                                let (mut card_lo, mut card_hi) = (*card_allowed, *card_allowed);
                                 let mut ab_points_seen = [false; 12];
                                 for &card in Some(card_allowed).into_iter().chain(itcard.by_ref())
                                     .take_while(|card| find_remove(&mut veccard_allowed, **card))
@@ -452,11 +452,11 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         }
                                     })
                                 {
-                                    if ocard_lo.is_none() || points_card(unwrap!(ocard_lo)) > points_card(card) {
-                                        ocard_lo = Some(card);
+                                    if points_card(card_lo) > points_card(card) {
+                                        card_lo = card;
                                     }
-                                    if ocard_hi.is_none() || points_card(unwrap!(ocard_hi)) < points_card(card) {
-                                        ocard_hi = Some(card);
+                                    if points_card(card_hi) < points_card(card) {
+                                        card_hi = card;
                                     }
                                     stichseq.zugeben_and_restore_custom_winner_index(card, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
                                         find_relevant_stichs::<StichSize::Next, _>(
@@ -514,17 +514,17 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
 
                                     { // the following represents a OthersMin player
                                         if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_result[n_stich_before]), rules.winner_index(&vecstich_result[n_stich_before]))) {
-                                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==unwrap!(ocard_lo));
+                                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==card_lo);
                                         } else {
-                                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==unwrap!(ocard_hi))
+                                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==card_hi)
                                         }
                                     }
 
                                     /*{ // the following represents a MaxPerEpi player
                                         if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
-                                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_hi));
+                                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==card_hi);
                                         } else {
-                                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==unwrap!(ocard_lo))
+                                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==card_lo)
                                         }
                                     }*/
                                 }
