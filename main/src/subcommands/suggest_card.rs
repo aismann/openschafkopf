@@ -348,48 +348,82 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 }
             }
             use arrayvec::ArrayVec;
-            struct SCluster {
-                veccard_trumpf: ArrayVec<[SCard; 14]>,
-                aveccard_farbe: [ArrayVec<[SCard; 6]>; 3],
+            struct SEquivalenceLists {
+                mapcardcard_next: EnumMap<SCard, SCard>,
+                mapcardcard_prev: EnumMap<SCard, SCard>,
             }
-            impl SCluster {
-                fn new(rules: &dyn TRules, stichseq: &SStichSequence) -> Self {
-                    use crate::primitives::card::card_values::*;
+            impl SEquivalenceLists {
+                fn new(slcslccard: &[&[SCard]], stichseq: &SStichSequence) -> Self {
+                    let mut mapcardcard_next = SCard::map_from_fn(|card| card);
+                    let mut mapcardcard_prev = SCard::map_from_fn(|card| card);
+                    for slccard in slcslccard {
+                        for (card_from, card_to) in slccard.iter().tuple_windows() {
+                            mapcardcard_next[*card_from] = *card_to;
+                            mapcardcard_prev[*card_to] = *card_from;
+                        }
+                    }
                     let mut slf = Self {
-                        veccard_trumpf: ArrayVec::from([EO, GO, HO, SO, EU, GU, HU, SU, HA, HZ, HK, H9, H8, H7]),
-                        aveccard_farbe: [
-                            ArrayVec::from([EA, EZ, EK, E9, E8, E7]),
-                            ArrayVec::from([GA, GZ, GK, G9, G8, G7]),
-                            ArrayVec::from([SA, SZ, SK, S9, S8, S7]),
-                        ],
+                        mapcardcard_next,
+                        mapcardcard_prev,
                     };
-                    // eliminate already played cards to close gaps
+                    for slccard in slcslccard {
+                        let mut itcard = slccard.iter().copied();
+                        if let Some(mut card) = itcard.next() {
+                            assert!(slf.prev(card).is_none());
+                            for card_next in itcard {
+                                assert_eq!(unwrap!(slf.next(card)), card_next);
+                                assert_eq!(unwrap!(slf.prev(card_next)), card);
+                                card = card_next;
+                            }
+                            assert!(slf.next(card).is_none());
+                        }
+                    }
                     for stich in stichseq.completed_stichs().iter() {
                         for (_epi, card_played) in stich.iter() {
-                            use VTrumpfOrFarbe::*;
-                            use EFarbe::*;
-                            match rules.trumpforfarbe(*card_played) {
-                                Trumpf => slf.veccard_trumpf.retain(|card| card!=card_played),
-                                Farbe(Eichel) => slf.aveccard_farbe[0].retain(|card| card!=card_played),
-                                Farbe(Gras) => slf.aveccard_farbe[1].retain(|card| card!=card_played),
-                                Farbe(Schelln) => slf.aveccard_farbe[2].retain(|card| card!=card_played),
-                                Farbe(Herz) => panic!("TODO customize per rules"),
-                            }
+                            slf.remove(*card_played);
                         }
                     }
                     slf
                 }
-                fn get_equiv(&self, rules: &dyn TRules, card: SCard) -> &[SCard] {
-                    use VTrumpfOrFarbe::*;
-                    use EFarbe::*;
-                    match rules.trumpforfarbe(card) {
-                        Trumpf => &self.veccard_trumpf,
-                        Farbe(Eichel) => &self.aveccard_farbe[0],
-                        Farbe(Gras) => &self.aveccard_farbe[1],
-                        Farbe(Schelln) => &self.aveccard_farbe[2],
-                        Farbe(Herz) => panic!("TODO customize per rules"),
+                fn next(&self, card: SCard) -> Option<SCard> {
+                    let card_next = self.mapcardcard_next[card];
+                    if_then_some!(card_next!=card, card_next)
+                }
+                fn prev(&self, card: SCard) -> Option<SCard> {
+                    let card_prev = self.mapcardcard_prev[card];
+                    if_then_some!(card_prev!=card, card_prev)
+                }
+                fn remove(&mut self, card: SCard) {
+                    let ocard_next = self.next(card);
+                    let ocard_prev = self.prev(card);
+                    if let Some(card_next) = ocard_next.as_ref() {
+                        self.mapcardcard_prev[*card_next] = if let Some(card_prev) = ocard_prev.as_ref() {
+                            *card_prev
+                        } else {
+                            *card_next
+                        };
+                        assert_eq!(self.prev(*card_next), ocard_prev);
+                    }
+                    if let Some(card_prev) = ocard_prev.as_ref() {
+                        self.mapcardcard_next[*card_prev] = if let Some(card_next) = ocard_next.as_ref() {
+                            *card_next
+                        } else {
+                            *card_prev
+                        };
+                        assert_eq!(self.next(*card_prev), ocard_next);
                     }
                 }
+                // fn remove_and_undo<R>(&mut self, card: SCard, f: impl FnOnce(&mut Self)->R) -> R {
+                //     let card_next = self.mapcardcard_next[card];
+                //     let card_prev = self.mapcardcard_prev[card];
+                //     self.mapcardcard_prev[card_next] = card_prev;
+                //     self.mapcardcard_next[card_prev] = card_next;
+                //     self.remove(card);
+                //     let r = f(self);
+                //     self.mapcardcard_next[card_prev] = card;
+                //     self.mapcardcard_prev[card_next] = card;
+                //     r
+                // }
             }
             fn internal_explore_2(
                 stichseq: &mut SStichSequence,
@@ -422,7 +456,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     ahand: &EnumMap<EPlayerIndex, SHand>,
                     rules: &dyn TRules,
                     winidxcache: &SWinnerIndexCache,
-                    cluster: &SCluster,
+                    cluster: &SEquivalenceLists,
                     epi_self: EPlayerIndex,
                     fn_is_same_party: &TFnSameParty,
                     vecstich_result: &mut Vec<SStich>,
@@ -440,25 +474,23 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                 false
                             }
                         }
-                        let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
-                        while !veccard_allowed.is_empty() {
-                            let mut itcard = cluster.get_equiv(rules, veccard_allowed[0]).iter();
-                            while let Some(card_allowed) = itcard.find(|card| veccard_allowed.contains(*card)) {
+                        let mut veccard_allowed = dbg!(rules.all_allowed_cards(stichseq, &ahand[epi_current]));
+                        {
+                            while let Some(card_allowed) = veccard_allowed.pop() {
                                 use crate::rules::card_points::*;
                                 let n_stich_before = vecstich_result.len();
-                                let (mut card_lo, mut card_hi) = (*card_allowed, *card_allowed);
                                 let mut ab_points_seen = [false; 12];
-                                for &card in Some(card_allowed).into_iter().chain(itcard.by_ref())
-                                    .take_while(|card| find_remove(&mut veccard_allowed, **card))
-                                {
+                                let mut recurse = |card, card_lo: &mut SCard, card_hi: &mut SCard| {
+                                    println!("trying recurse on {}", card);
                                     let b_seen : &mut bool = &mut ab_points_seen[points_card(card).as_num::<usize>()];
                                     if !*b_seen {
+                                        println!("recurse on {}", card);
                                         *b_seen = true;
-                                        if points_card(card_lo) > points_card(card) {
-                                            card_lo = card;
+                                        if points_card(*card_lo) > points_card(card) {
+                                            *card_lo = card;
                                         }
-                                        if points_card(card_hi) < points_card(card) {
-                                            card_hi = card;
+                                        if points_card(*card_hi) < points_card(card) {
+                                            *card_hi = card;
                                         }
                                         stichseq.zugeben_and_restore_custom_winner_index(card, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
                                             find_relevant_stichs::<StichSize::Next, _>(
@@ -473,16 +505,40 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                             );
                                         });
                                     }
+                                };
+                                let mut veccard_equiv = Vec::new();
+                                let mut ocard_allowed_prev = cluster.prev(card_allowed);
+                                while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
+                                    if find_remove(&mut veccard_allowed, card_allowed_prev) {
+                                        //recurse(card_allowed_prev);
+                                        veccard_equiv.push(card_allowed_prev);
+                                        ocard_allowed_prev = cluster.prev(card_allowed_prev);
+                                    }
                                 }
-                                assert!(n_stich_before < vecstich_result.len());
-                                if dbg!(vecstich_result[n_stich_before..]
+                                veccard_equiv.reverse();
+                                //recurse(card_allowed);
+                                veccard_equiv.push(card_allowed);
+                                let mut ocard_allowed_next = cluster.next(card_allowed);
+                                while let Some(card_allowed_next) = ocard_allowed_next.take() {
+                                    if find_remove(&mut veccard_allowed, card_allowed_next) {
+                                        //recurse(card_allowed_next);
+                                        veccard_equiv.push(card_allowed_next);
+                                        ocard_allowed_next = cluster.next(card_allowed_next);
+                                    }
+                                }
+                                let (mut card_lo, mut card_hi) = (veccard_equiv[0], veccard_equiv[0]);
+                                for card in dbg!(veccard_equiv).iter().copied() {
+                                    recurse(card, &mut card_lo, &mut card_hi);
+                                }
+                                assert!(n_stich_before < vecstich_result.len(), "{:?} {} on {:?}", veccard_equiv, card_allowed, stichseq);
+                                if vecstich_result[n_stich_before..]
                                     .iter()
                                     .map(|stich|
                                         // TODO is this correct? Do we have to rely on winner_index directly?
                                         fn_is_same_party(epi_current, debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)))
                                     )
                                     .all_equal()
-                                ) {
+                                {
                                     fn extend_with(
                                         vecstich: &mut Vec<SStich>,
                                         n_stich_before: usize,
@@ -531,17 +587,27 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         }
                                     }*/
                                 }
+                                assert!(n_stich_before < vecstich_result.len(), "{:?} ({},{}) {} on {:?}", veccard_equiv, card_hi, card_lo, card_allowed, stichseq);
                             }
                         }
                     }
                 }
                 let mut vecstich = Vec::with_capacity(4096);
+                use crate::primitives::card::card_values::*;
                 find_relevant_stichs::<SStichSize0, _>(
                     stichseq,
                     ahand,
                     rules,
                     winidxcache,
-                    &SCluster::new(rules, stichseq),
+                    &SEquivalenceLists::new(
+                        &[
+                            &[EO, GO, HO, SO, EU, GU, HU, SU, HA, HZ, HK, H9, H8, H7],
+                            &[EA, EZ, EK, E9, E8, E7],
+                            &[GA, GZ, GK, G9, G8, G7],
+                            &[SA, SZ, SK, S9, S8, S7],
+                        ],
+                        stichseq,
+                    ),
                     EPlayerIndex::EPI0,
                     &|epi_lhs, epi_rhs| (epi_lhs==EPlayerIndex::EPI0)==(epi_rhs==EPlayerIndex::EPI0),
                     &mut vecstich,
