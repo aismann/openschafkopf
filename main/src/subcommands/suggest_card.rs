@@ -480,17 +480,35 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                 use crate::rules::card_points::*;
                                 let n_stich_before = vecstich_result.len();
                                 let mut ab_points_seen = [false; 12];
-                                let mut recurse = |card, card_lo: &mut SCard, card_hi: &mut SCard| {
-                                    let b_seen : &mut bool = &mut ab_points_seen[points_card(card).as_num::<usize>()];
+                                let mut card_first = card_allowed;
+                                let mut ocard_allowed_prev = cluster.prev(card_allowed);
+                                while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
+                                    if find_remove(&mut veccard_allowed, card_allowed_prev) {
+                                        card_first = card_allowed_prev;
+                                        ocard_allowed_prev = cluster.prev(card_allowed_prev);
+                                    }
+                                }
+                                let mut ocard_allowed_next = cluster.next(card_allowed);
+                                let mut ocard_last = ocard_allowed_next.clone();
+                                while let Some(card_allowed_next) = ocard_allowed_next.take() {
+                                    if find_remove(&mut veccard_allowed, card_allowed_next) {
+                                        ocard_allowed_next = cluster.next(card_allowed_next);
+                                        ocard_last = ocard_allowed_next.clone();
+                                    }
+                                }
+                                //println!("{} {:?}", card_first, ocard_last);
+                                let (mut card_lo, mut card_hi) = (card_first, card_first);
+                                loop {
+                                    let b_seen : &mut bool = &mut ab_points_seen[points_card(card_first).as_num::<usize>()];
                                     if !*b_seen {
                                         *b_seen = true;
-                                        if points_card(*card_lo) > points_card(card) {
-                                            *card_lo = card;
+                                        if points_card(card_lo) > points_card(card_first) {
+                                            card_lo = card_first;
                                         }
-                                        if points_card(*card_hi) < points_card(card) {
-                                            *card_hi = card;
+                                        if points_card(card_hi) < points_card(card_first) {
+                                            card_hi = card_first;
                                         }
-                                        stichseq.zugeben_and_restore_custom_winner_index(card, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
+                                        stichseq.zugeben_and_restore_custom_winner_index(card_first, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
                                             find_relevant_stichs::<StichSize::Next, _>(
                                                 stichseq,
                                                 ahand,
@@ -503,30 +521,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                             );
                                         });
                                     }
-                                };
-                                let mut card_first = card_allowed;
-                                let mut ocard_allowed_prev = cluster.prev(card_allowed);
-                                while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
-                                    if find_remove(&mut veccard_allowed, card_allowed_prev) {
-                                        //recurse(card_allowed_prev);
-                                        card_first = card_allowed_prev;
-                                        ocard_allowed_prev = cluster.prev(card_allowed_prev);
-                                    }
-                                }
-                                //recurse(card_allowed);
-                                let mut ocard_allowed_next = cluster.next(card_allowed);
-                                let mut ocard_last = ocard_allowed_next.clone();
-                                while let Some(card_allowed_next) = ocard_allowed_next.take() {
-                                    if find_remove(&mut veccard_allowed, card_allowed_next) {
-                                        //recurse(card_allowed_next);
-                                        ocard_allowed_next = cluster.next(card_allowed_next);
-                                        ocard_last = ocard_allowed_next.clone();
-                                    }
-                                }
-                                //println!("{} {:?}", card_first, ocard_last);
-                                let (mut card_lo, mut card_hi) = (card_first, card_first);
-                                loop {
-                                    recurse(card_first, &mut card_lo, &mut card_hi);
                                     let ocard_next = cluster.next(card_first);
                                     if ocard_next==ocard_last {
                                         break;
