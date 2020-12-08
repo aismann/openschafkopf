@@ -442,34 +442,29 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                 let mut ab_points_seen = [false; 12];
                                 for &card in Some(card_allowed).into_iter().chain(itcard.by_ref())
                                     .take_while(|card| find_remove(&mut veccard_allowed, **card))
-                                    .filter(|card| {
-                                        let b_seen : &mut bool = &mut ab_points_seen[points_card(**card).as_num::<usize>()];
-                                        if *b_seen {
-                                            return false;
-                                        } else {
-                                            *b_seen = true;
-                                            return true;
-                                        }
-                                    })
                                 {
-                                    if points_card(card_lo) > points_card(card) {
-                                        card_lo = card;
+                                    let b_seen : &mut bool = &mut ab_points_seen[points_card(card).as_num::<usize>()];
+                                    if !*b_seen {
+                                        *b_seen = true;
+                                        if points_card(card_lo) > points_card(card) {
+                                            card_lo = card;
+                                        }
+                                        if points_card(card_hi) < points_card(card) {
+                                            card_hi = card;
+                                        }
+                                        stichseq.zugeben_and_restore_custom_winner_index(card, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
+                                            find_relevant_stichs::<StichSize::Next, _>(
+                                                stichseq,
+                                                ahand,
+                                                rules,
+                                                winidxcache,
+                                                cluster,
+                                                epi_self,
+                                                fn_is_same_party,
+                                                vecstich_result,
+                                            );
+                                        });
                                     }
-                                    if points_card(card_hi) < points_card(card) {
-                                        card_hi = card;
-                                    }
-                                    stichseq.zugeben_and_restore_custom_winner_index(card, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
-                                        find_relevant_stichs::<StichSize::Next, _>(
-                                            stichseq,
-                                            ahand,
-                                            rules,
-                                            winidxcache,
-                                            cluster,
-                                            epi_self,
-                                            fn_is_same_party,
-                                            vecstich_result,
-                                        );
-                                    });
                                 }
                                 assert!(n_stich_before < vecstich_result.len());
                                 if dbg!(vecstich_result[n_stich_before..]
