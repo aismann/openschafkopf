@@ -481,10 +481,8 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                 let n_stich_before = vecstich_result.len();
                                 let mut ab_points_seen = [false; 12];
                                 let mut recurse = |card, card_lo: &mut SCard, card_hi: &mut SCard| {
-                                    println!("trying recurse on {}", card);
                                     let b_seen : &mut bool = &mut ab_points_seen[points_card(card).as_num::<usize>()];
                                     if !*b_seen {
-                                        println!("recurse on {}", card);
                                         *b_seen = true;
                                         if points_card(*card_lo) > points_card(card) {
                                             *card_lo = card;
@@ -506,11 +504,13 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         });
                                     }
                                 };
+                                let mut card_first = card_allowed;
                                 let mut veccard_equiv = Vec::new();
                                 let mut ocard_allowed_prev = cluster.prev(card_allowed);
                                 while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
                                     if find_remove(&mut veccard_allowed, card_allowed_prev) {
                                         //recurse(card_allowed_prev);
+                                        card_first = card_allowed_prev;
                                         veccard_equiv.push(card_allowed_prev);
                                         ocard_allowed_prev = cluster.prev(card_allowed_prev);
                                     }
@@ -519,17 +519,29 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                 //recurse(card_allowed);
                                 veccard_equiv.push(card_allowed);
                                 let mut ocard_allowed_next = cluster.next(card_allowed);
+                                let mut ocard_last = ocard_allowed_next.clone();
                                 while let Some(card_allowed_next) = ocard_allowed_next.take() {
                                     if find_remove(&mut veccard_allowed, card_allowed_next) {
                                         //recurse(card_allowed_next);
                                         veccard_equiv.push(card_allowed_next);
                                         ocard_allowed_next = cluster.next(card_allowed_next);
+                                        ocard_last = ocard_allowed_next.clone();
                                     }
                                 }
+                                let mut veccard_equiv_check = Vec::new();
+                                //println!("{} {:?}", card_first, ocard_last);
                                 let (mut card_lo, mut card_hi) = (veccard_equiv[0], veccard_equiv[0]);
-                                for card in dbg!(veccard_equiv).iter().copied() {
-                                    recurse(card, &mut card_lo, &mut card_hi);
+                                loop {
+                                    veccard_equiv_check.push(card_first);
+                                    recurse(card_first, &mut card_lo, &mut card_hi);
+                                    let ocard_next = cluster.next(card_first);
+                                    if ocard_next==ocard_last {
+                                        break;
+                                    } else if let Some(card_next) = verify!(ocard_next) {
+                                        card_first = card_next;
+                                    }
                                 }
+                                assert_eq!(veccard_equiv, veccard_equiv_check);
                                 assert!(n_stich_before < vecstich_result.len(), "{:?} {} on {:?}", veccard_equiv, card_allowed, stichseq);
                                 if vecstich_result[n_stich_before..]
                                     .iter()
