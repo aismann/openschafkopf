@@ -505,34 +505,27 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                     }
                                 };
                                 let mut card_first = card_allowed;
-                                let mut veccard_equiv = Vec::new();
                                 let mut ocard_allowed_prev = cluster.prev(card_allowed);
                                 while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
                                     if find_remove(&mut veccard_allowed, card_allowed_prev) {
                                         //recurse(card_allowed_prev);
                                         card_first = card_allowed_prev;
-                                        veccard_equiv.push(card_allowed_prev);
                                         ocard_allowed_prev = cluster.prev(card_allowed_prev);
                                     }
                                 }
-                                veccard_equiv.reverse();
                                 //recurse(card_allowed);
-                                veccard_equiv.push(card_allowed);
                                 let mut ocard_allowed_next = cluster.next(card_allowed);
                                 let mut ocard_last = ocard_allowed_next.clone();
                                 while let Some(card_allowed_next) = ocard_allowed_next.take() {
                                     if find_remove(&mut veccard_allowed, card_allowed_next) {
                                         //recurse(card_allowed_next);
-                                        veccard_equiv.push(card_allowed_next);
                                         ocard_allowed_next = cluster.next(card_allowed_next);
                                         ocard_last = ocard_allowed_next.clone();
                                     }
                                 }
-                                let mut veccard_equiv_check = Vec::new();
                                 //println!("{} {:?}", card_first, ocard_last);
-                                let (mut card_lo, mut card_hi) = (veccard_equiv[0], veccard_equiv[0]);
+                                let (mut card_lo, mut card_hi) = (card_first, card_first);
                                 loop {
-                                    veccard_equiv_check.push(card_first);
                                     recurse(card_first, &mut card_lo, &mut card_hi);
                                     let ocard_next = cluster.next(card_first);
                                     if ocard_next==ocard_last {
@@ -541,8 +534,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         card_first = card_next;
                                     }
                                 }
-                                assert_eq!(veccard_equiv, veccard_equiv_check);
-                                assert!(n_stich_before < vecstich_result.len(), "{:?} {} on {:?}", veccard_equiv, card_allowed, stichseq);
                                 if vecstich_result[n_stich_before..]
                                     .iter()
                                     .map(|stich|
@@ -599,7 +590,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                         }
                                     }*/
                                 }
-                                assert!(n_stich_before < vecstich_result.len(), "{:?} ({},{}) {} on {:?}", veccard_equiv, card_hi, card_lo, card_allowed, stichseq);
                             }
                         }
                     }
