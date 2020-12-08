@@ -424,36 +424,34 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     } else {
                         let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
                         macro_rules! dbg(($e:expr) => {$e});
+                        fn find_remove(veccard: &mut ArrayVec<[SCard; 8]>, card: SCard) -> bool {
+                            if let Some(i) = veccard.iter().position(|card_allowed| card_allowed==&card) {
+                                veccard.swap_remove(i);
+                                true
+                            } else {
+                                false
+                            }
+                        }
                         let mut veccard_allowed = dbg!(rules.all_allowed_cards(dbg!(stichseq), dbg!(&ahand[epi_current])));
                         while !veccard_allowed.is_empty() {
-                            let veccard_equivalent = cluster.get_equiv(rules, veccard_allowed[0]);
-                            for (_b_found, groupcard) in veccard_equivalent
-                                .iter()
-                                .group_by(|card| {
-                                    if let Some(i) = veccard_allowed.iter().position(|card_allowed| card_allowed==*card) {
-                                        veccard_allowed.swap_remove(i);
-                                        true
-                                    } else {
-                                        false
-                                    }
-                                })
-                                .into_iter()
-                                .filter(|(b_found, _)| *b_found)
-                            {
-
+                            let mut itcard = cluster.get_equiv(rules, veccard_allowed[0]).iter();
+                            while let Some(card_allowed) = itcard.find(|card| veccard_allowed.contains(*card)) {
                                 use crate::rules::card_points::*;
                                 let n_stich_before = vecstich_result.len();
                                 let (mut ocard_lo, mut ocard_hi) = (None, None);
                                 let mut ab_points_seen = [false; 12];
-                                for &card in groupcard.filter(|card| {
-                                    let b_seen : &mut bool = &mut ab_points_seen[points_card(**card).as_num::<usize>()];
-                                    if *b_seen {
-                                        return false;
-                                    } else {
-                                        *b_seen = true;
-                                        return true;
-                                    }
-                                }) {
+                                for &card in Some(card_allowed).into_iter().chain(itcard.by_ref())
+                                    .take_while(|card| find_remove(&mut veccard_allowed, **card))
+                                    .filter(|card| {
+                                        let b_seen : &mut bool = &mut ab_points_seen[points_card(**card).as_num::<usize>()];
+                                        if *b_seen {
+                                            return false;
+                                        } else {
+                                            *b_seen = true;
+                                            return true;
+                                        }
+                                    })
+                                {
                                     if ocard_lo.is_none() || points_card(unwrap!(ocard_lo)) > points_card(card) {
                                         ocard_lo = Some(card);
                                     }
