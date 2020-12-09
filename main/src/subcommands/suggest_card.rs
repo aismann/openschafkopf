@@ -7,6 +7,7 @@ use crate::cardvector::*;
 use itertools::*;
 use combine::{char::*, *};
 use fxhash::FxHashMap as HashMap;
+use rand::prelude::*;
 
 plain_enum_mod!(moderemainingcards, ERemainingCards {_1, _2, _3, _4, _5, _6, _7, _8,});
 plain_enum_mod!(modecardindex, ECardIndex {_1, _2, _3, _4, _5, _6, _7, _8,});
@@ -303,7 +304,14 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
     let epi_fixed = determinebestcard.epi_fixed;
 
     {
-        let ahand = unwrap!(all_possible_hands(&stichseq, hand_fixed.clone(), epi_fixed, rules).next()).clone();
+        let ahand = {
+            let ahand_0 = unwrap!(all_possible_hands(&stichseq, hand_fixed.clone(), epi_fixed, rules).next()).clone();
+            EPlayerIndex::map_from_fn(|epi| {
+                let mut veccard = ahand_0[epi].cards().clone();
+                veccard.shuffle(&mut rand::thread_rng());
+                SHand::new_from_vec(veccard)
+            })
+        };
         println!("{:?}", ahand);
         {
             #[derive(Clone, Debug, Eq, PartialEq, Hash)]
