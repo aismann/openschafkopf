@@ -308,7 +308,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             let ahand_0 = unwrap!(all_possible_hands(&stichseq, hand_fixed.clone(), epi_fixed, rules).next()).clone();
             EPlayerIndex::map_from_fn(|epi| {
                 let mut veccard = ahand_0[epi].cards().clone();
-                veccard.shuffle(&mut rand::thread_rng());
+                if_dbg_else!({veccard.shuffle(&mut rand::thread_rng())}{});
                 SHand::new_from_vec(veccard)
             })
         };
