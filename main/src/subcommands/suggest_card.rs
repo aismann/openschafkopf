@@ -620,7 +620,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         stichseq.zugeben_custom_winner_index(card, |stich| {
                             debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich))
                         });
-                        ahand[epi].play_card(card);
+                        ahand[epi].play_card_2(card);
                     }
                     map.insert(
                         SBeginning::new(

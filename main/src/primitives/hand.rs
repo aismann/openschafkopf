@@ -34,6 +34,11 @@ impl SHand {
     pub fn play_card(&mut self, card: SCard) {
         self.veccard.retain(|&mut card_in_hand| card_in_hand!=card)
     }
+    pub fn play_card_2(&mut self, card: SCard) {
+        if let Some(i) = self.veccard.iter().position(|card_allowed| card_allowed==&card) {
+            self.veccard.swap_remove(i);
+        }
+    }
     pub fn add_card(&mut self, card: SCard) {
         debug_assert!(!self.contains(card));
         self.veccard.push(card)
