@@ -326,7 +326,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     let mut setcard = SCard::map_from_fn(|_| false);
                     for stich in stichseq.visible_stichs() {
                         for (_, card) in stich.iter() {
-                            assert!(!setcard[*card]);
+                            debug_assert!(!setcard[*card]); // relatively expensive
                             setcard[*card] = true;
                         }
                     }
