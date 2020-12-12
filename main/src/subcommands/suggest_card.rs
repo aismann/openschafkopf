@@ -586,7 +586,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 ahand: &EnumMap<EPlayerIndex, SHand>,
                 rules: &dyn TRules,
                 winidxcache: &SWinnerIndexCache,
-                _n_stichseq_bound: usize,
                 mut map: HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
             ) -> HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)> {
                 let mut vecstich = Vec::with_capacity(4096);
@@ -660,7 +659,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             }
             #[derive(new)]
             struct SStep {
-                i_stichseq_depth: usize,
                 n_batch: usize,
             }
             fn doit(
@@ -679,7 +677,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                             &ahand,
                             rules,
                             winidxcache,
-                            step.i_stichseq_depth,
                             map,
                         )
                     });
@@ -714,8 +711,8 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 }
             }
             let vecstep : Vec<_> = unwrap!(clapmatches.value_of("batch")).split(',').map(|str_step| {
-                let (str_depth, str_chunk) = unwrap!(str_step.split(' ').collect_tuple());
-                SStep::new(unwrap!(str_depth.parse()), unwrap!(str_chunk.parse()))
+                let (str_depth, _str_chunk) = unwrap!(str_step.split(' ').collect_tuple());
+                SStep::new(unwrap!(str_depth.parse()))
             }).collect();
             doit(
                 std::iter::once((SStichSequence::new(EKurzLang::Lang), ahand.clone())),
