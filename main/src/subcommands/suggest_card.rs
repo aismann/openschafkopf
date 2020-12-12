@@ -279,6 +279,40 @@ impl std::str::FromStr for VConstraint {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+struct SBeginning {
+    setcard: EnumMap<SCard, bool>,
+    pointstichcount_epi0: SPointStichCount,
+    pointstichcount_other: SPointStichCount,
+    epi_current: EPlayerIndex,
+}
+impl SBeginning {
+    fn new(stichseq: &SStichSequence, rulestatecachechanging: &SRuleStateCacheChanging) -> Self {
+        let mut setcard = SCard::map_from_fn(|_| false);
+        for stich in stichseq.visible_stichs() {
+            for (_, card) in stich.iter() {
+                debug_assert!(!setcard[*card]); // relatively expensive
+                setcard[*card] = true;
+            }
+        }
+        Self {
+            setcard,
+            pointstichcount_epi0: rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI0].clone(),
+            pointstichcount_other: SPointStichCount {
+                n_stich:
+                    rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI1].n_stich
+                    + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI2].n_stich
+                    + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI3].n_stich,
+                n_point:
+                    rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI1].n_point
+                    + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI2].n_point
+                    + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI3].n_point,
+            },
+            epi_current: stichseq.current_stich().first_playerindex(),
+        }
+    }
+}
+
 struct SEquivalenceLists {
     mapcardcard_next: EnumMap<SCard, SCard>,
     mapcardcard_prev: EnumMap<SCard, SCard>,
@@ -548,39 +582,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
         };
         println!("{:?}", ahand);
         {
-            #[derive(Clone, Debug, Eq, PartialEq, Hash)]
-            struct SBeginning {
-                setcard: EnumMap<SCard, bool>,
-                pointstichcount_epi0: SPointStichCount,
-                pointstichcount_other: SPointStichCount,
-                epi_current: EPlayerIndex,
-            };
-            impl SBeginning {
-                fn new(stichseq: &SStichSequence, rulestatecachechanging: &SRuleStateCacheChanging) -> Self {
-                    let mut setcard = SCard::map_from_fn(|_| false);
-                    for stich in stichseq.visible_stichs() {
-                        for (_, card) in stich.iter() {
-                            debug_assert!(!setcard[*card]); // relatively expensive
-                            setcard[*card] = true;
-                        }
-                    }
-                    Self {
-                        setcard,
-                        pointstichcount_epi0: rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI0].clone(),
-                        pointstichcount_other: SPointStichCount {
-                            n_stich:
-                                rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI1].n_stich
-                                + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI2].n_stich
-                                + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI3].n_stich,
-                            n_point:
-                                rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI1].n_point
-                                + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI2].n_point
-                                + rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI3].n_point,
-                        },
-                        epi_current: stichseq.current_stich().first_playerindex(),
-                    }
-                }
-            }
             fn internal_explore_2(
                 stichseq: &mut SStichSequence,
                 ahand: &EnumMap<EPlayerIndex, SHand>,
