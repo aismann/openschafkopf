@@ -635,24 +635,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         (stichseq, ahand)
                     );
                 }
-                let n_map_len_intermediate = map.len();
-                // map.retain(|_, (stichseq, ahand)| {
-                //     let payouthints = rules.payouthints(
-                //         &stichseq,
-                //         &ahand,
-                //         &SRuleStateCache::new(
-                //             &stichseq,
-                //             &ahand,
-                //             |stich| rules.winner_index(stich),
-                //         ),
-                //     );
-                //     match (payouthints[EPlayerIndex::EPI0].lower_bound(), payouthints[EPlayerIndex::EPI0].upper_bound()) {
-                //         (Some(payout_lo), _) if 0 <= payout_lo.payout_including_stock(0, (0, 0)) => false,
-                //         (_, Some(payout_hi)) if payout_hi.payout_including_stock(0, (0, 0))<= 0 => false,
-                //         _ => true,
-                //     }
-                // });
-                println!("{} states compressed to {} to {} ({} total)", vecstich.len(), n_map_len_intermediate - n_map_len_before, map.len() - n_map_len_before, map.len());
+                println!("{} states compressed to {} ({} total)", vecstich.len(), map.len() - n_map_len_before, map.len());
                 map
 
 
