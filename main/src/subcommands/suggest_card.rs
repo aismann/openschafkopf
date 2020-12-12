@@ -8,6 +8,7 @@ use itertools::*;
 use combine::{char::*, *};
 use fxhash::FxHashMap as HashMap;
 use rand::prelude::*;
+use arrayvec::ArrayVec;
 
 plain_enum_mod!(moderemainingcards, ERemainingCards {_1, _2, _3, _4, _5, _6, _7, _8,});
 plain_enum_mod!(modecardindex, ECardIndex {_1, _2, _3, _4, _5, _6, _7, _8,});
@@ -278,8 +279,241 @@ impl std::str::FromStr for VConstraint {
     }
 }
 
+struct SEquivalenceLists {
+    mapcardcard_next: EnumMap<SCard, SCard>,
+    mapcardcard_prev: EnumMap<SCard, SCard>,
+}
+impl SEquivalenceLists {
+    fn new(slcslccard: &[&[SCard]], stichseq: &SStichSequence) -> Self {
+        let mut mapcardcard_next = SCard::map_from_fn(|card| card);
+        let mut mapcardcard_prev = SCard::map_from_fn(|card| card);
+        for slccard in slcslccard {
+            for (card_from, card_to) in slccard.iter().tuple_windows() {
+                mapcardcard_next[*card_from] = *card_to;
+                mapcardcard_prev[*card_to] = *card_from;
+            }
+        }
+        let mut slf = Self {
+            mapcardcard_next,
+            mapcardcard_prev,
+        };
+        for slccard in slcslccard {
+            let mut itcard = slccard.iter().copied();
+            if let Some(mut card) = itcard.next() {
+                assert!(slf.prev(card).is_none());
+                for card_next in itcard {
+                    assert_eq!(unwrap!(slf.next(card)), card_next);
+                    assert_eq!(unwrap!(slf.prev(card_next)), card);
+                    card = card_next;
+                }
+                assert!(slf.next(card).is_none());
+            }
+        }
+        for stich in stichseq.completed_stichs().iter() {
+            for (_epi, card_played) in stich.iter() {
+                slf.remove(*card_played);
+            }
+        }
+        slf
+    }
+    fn next(&self, card: SCard) -> Option<SCard> {
+        let card_next = self.mapcardcard_next[card];
+        if_then_some!(card_next!=card, card_next)
+    }
+    fn prev(&self, card: SCard) -> Option<SCard> {
+        let card_prev = self.mapcardcard_prev[card];
+        if_then_some!(card_prev!=card, card_prev)
+    }
+    fn remove(&mut self, card: SCard) {
+        let ocard_next = self.next(card);
+        let ocard_prev = self.prev(card);
+        if let Some(card_next) = ocard_next.as_ref() {
+            self.mapcardcard_prev[*card_next] = if let Some(card_prev) = ocard_prev.as_ref() {
+                *card_prev
+            } else {
+                *card_next
+            };
+            assert_eq!(self.prev(*card_next), ocard_prev);
+        }
+        if let Some(card_prev) = ocard_prev.as_ref() {
+            self.mapcardcard_next[*card_prev] = if let Some(card_next) = ocard_next.as_ref() {
+                *card_next
+            } else {
+                *card_prev
+            };
+            assert_eq!(self.next(*card_prev), ocard_next);
+        }
+    }
+    // fn remove_and_undo<R>(&mut self, card: SCard, f: impl FnOnce(&mut Self)->R) -> R {
+    //     let card_next = self.mapcardcard_next[card];
+    //     let card_prev = self.mapcardcard_prev[card];
+    //     self.mapcardcard_prev[card_next] = card_prev;
+    //     self.mapcardcard_next[card_prev] = card_next;
+    //     self.remove(card);
+    //     let r = f(self);
+    //     self.mapcardcard_next[card_prev] = card;
+    //     self.mapcardcard_prev[card_next] = card;
+    //     r
+    // }
+}
+
+trait TStichSize : TStaticValue<usize> {
+    type Next: TStichSize;
+}
+macro_rules! define_stichsize{($stichsize:ident, $n:expr, $stichsize_next:ident) => {
+    define_static_value!(pub $stichsize, usize, $n);
+    impl TStichSize for $stichsize {
+        type Next = $stichsize_next;
+    }
+}}
+define_stichsize!(SStichSize0, 0, SStichSize1);
+define_stichsize!(SStichSize1, 1, SStichSize2);
+define_stichsize!(SStichSize2, 2, SStichSize3);
+define_stichsize!(SStichSize3, 3, SStichSize4);
+define_stichsize!(SStichSize4, 4, SStichSize0);
+#[inline(always)]
+fn find_relevant_stichs<
+    StichSize: TStichSize,
+    TFnSameParty: Fn(EPlayerIndex, EPlayerIndex)->bool,
+>(
+    stichseq: &mut SStichSequence,
+    ahand: &EnumMap<EPlayerIndex, SHand>,
+    rules: &dyn TRules,
+    winidxcache: &SWinnerIndexCache,
+    cluster: &SEquivalenceLists,
+    epi_self: EPlayerIndex,
+    fn_is_same_party: &TFnSameParty,
+    vecstich_result: &mut Vec<SStich>,
+) {
+    if StichSize::VALUE==EPlayerIndex::SIZE {
+        vecstich_result.push(unwrap!(stichseq.completed_stichs().last()).clone()); // must yield this one to callers
+    } else {
+        let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
+        macro_rules! dbg(($e:expr) => {$e});
+        fn find_remove(veccard: &mut ArrayVec<[SCard; 8]>, card: SCard) -> bool {
+            if let Some(i) = veccard.iter().position(|card_allowed| card_allowed==&card) {
+                veccard.swap_remove(i);
+                true
+            } else {
+                false
+            }
+        }
+        let mut veccard_allowed = dbg!(rules.all_allowed_cards(stichseq, &ahand[epi_current]));
+        {
+            while let Some(card_allowed) = veccard_allowed.pop() {
+                use crate::rules::card_points::*;
+                let n_stich_before = vecstich_result.len();
+                let mut ab_points_seen = [false; 12];
+                let mut card_first = card_allowed;
+                let mut ocard_allowed_prev = cluster.prev(card_allowed);
+                while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
+                    if find_remove(&mut veccard_allowed, card_allowed_prev) {
+                        card_first = card_allowed_prev;
+                        ocard_allowed_prev = cluster.prev(card_allowed_prev);
+                    }
+                }
+                let mut ocard_allowed_next = cluster.next(card_allowed);
+                let mut ocard_last = ocard_allowed_next.clone();
+                while let Some(card_allowed_next) = ocard_allowed_next.take() {
+                    if find_remove(&mut veccard_allowed, card_allowed_next) {
+                        ocard_allowed_next = cluster.next(card_allowed_next);
+                        ocard_last = ocard_allowed_next.clone();
+                    }
+                }
+                //println!("{} {:?}", card_first, ocard_last);
+                let (mut card_lo, mut card_hi) = (card_first, card_first);
+                loop {
+                    let b_seen : &mut bool = &mut ab_points_seen[points_card(card_first).as_num::<usize>()];
+                    if !*b_seen {
+                        *b_seen = true;
+                        if points_card(card_lo) > points_card(card_first) {
+                            card_lo = card_first;
+                        }
+                        if points_card(card_hi) < points_card(card_first) {
+                            card_hi = card_first;
+                        }
+                        stichseq.zugeben_and_restore_custom_winner_index(card_first, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
+                            find_relevant_stichs::<StichSize::Next, _>(
+                                stichseq,
+                                ahand,
+                                rules,
+                                winidxcache,
+                                cluster,
+                                epi_self,
+                                fn_is_same_party,
+                                vecstich_result,
+                            );
+                        });
+                    }
+                    let ocard_next = cluster.next(card_first);
+                    if ocard_next==ocard_last {
+                        break;
+                    } else if let Some(card_next) = verify!(ocard_next) {
+                        card_first = card_next;
+                    }
+                }
+                if vecstich_result[n_stich_before..]
+                    .iter()
+                    .map(|stich|
+                        // TODO is this correct? Do we have to rely on winner_index directly?
+                        fn_is_same_party(epi_current, debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)))
+                    )
+                    .all_equal()
+                {
+                    fn extend_with(
+                        vecstich: &mut Vec<SStich>,
+                        n_stich_before: usize,
+                        fn_filter: impl Fn(&SStich)->bool,
+                    ) {
+                        // adapted from Vec::retain
+                        let len = vecstich.len();
+                        let mut del = 0;
+                        {
+                            let v = &mut **vecstich;
+                            for i in n_stich_before..len {
+                                if !fn_filter(&v[i]) {
+                                    del += 1;
+                                } else if del > 0 {
+                                    v.swap(i - del, i); // TODO would it be more efficient to simply clone from i to i-del? (Profiling did not show significant improvement.)
+                                }
+                            }
+                        }
+                        if del > 0 {
+                            vecstich.truncate(len - del);
+                        }
+                        // let mut i = 0;
+                        // vecstich.retain(|stich| {
+                        //     if i < n_stich_before {
+                        //         i += 1;
+                        //         true
+                        //     } else {
+                        //         fn_filter(stich)
+                        //     }
+                        // });
+                    }
+
+                    { // the following represents a OthersMin player
+                        if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_result[n_stich_before]), rules.winner_index(&vecstich_result[n_stich_before]))) {
+                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==card_lo);
+                        } else {
+                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==card_hi)
+                        }
+                    }
+
+                    /*{ // the following represents a MaxPerEpi player
+                        if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
+                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==card_hi);
+                        } else {
+                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==card_lo)
+                        }
+                    }*/
+                }
+            }
+        }
+    }
+}
+
 pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
-    let b_verbose = clapmatches.is_present("verbose");
     let hand_fixed = super::str_to_hand(&unwrap!(clapmatches.value_of("hand")))?;
     let veccard_as_played = &cardvector::parse_cards::<Vec<_>>(
         &unwrap!(clapmatches.value_of("cards_on_table")),
@@ -347,84 +581,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     }
                 }
             }
-            use arrayvec::ArrayVec;
-            struct SEquivalenceLists {
-                mapcardcard_next: EnumMap<SCard, SCard>,
-                mapcardcard_prev: EnumMap<SCard, SCard>,
-            }
-            impl SEquivalenceLists {
-                fn new(slcslccard: &[&[SCard]], stichseq: &SStichSequence) -> Self {
-                    let mut mapcardcard_next = SCard::map_from_fn(|card| card);
-                    let mut mapcardcard_prev = SCard::map_from_fn(|card| card);
-                    for slccard in slcslccard {
-                        for (card_from, card_to) in slccard.iter().tuple_windows() {
-                            mapcardcard_next[*card_from] = *card_to;
-                            mapcardcard_prev[*card_to] = *card_from;
-                        }
-                    }
-                    let mut slf = Self {
-                        mapcardcard_next,
-                        mapcardcard_prev,
-                    };
-                    for slccard in slcslccard {
-                        let mut itcard = slccard.iter().copied();
-                        if let Some(mut card) = itcard.next() {
-                            assert!(slf.prev(card).is_none());
-                            for card_next in itcard {
-                                assert_eq!(unwrap!(slf.next(card)), card_next);
-                                assert_eq!(unwrap!(slf.prev(card_next)), card);
-                                card = card_next;
-                            }
-                            assert!(slf.next(card).is_none());
-                        }
-                    }
-                    for stich in stichseq.completed_stichs().iter() {
-                        for (_epi, card_played) in stich.iter() {
-                            slf.remove(*card_played);
-                        }
-                    }
-                    slf
-                }
-                fn next(&self, card: SCard) -> Option<SCard> {
-                    let card_next = self.mapcardcard_next[card];
-                    if_then_some!(card_next!=card, card_next)
-                }
-                fn prev(&self, card: SCard) -> Option<SCard> {
-                    let card_prev = self.mapcardcard_prev[card];
-                    if_then_some!(card_prev!=card, card_prev)
-                }
-                fn remove(&mut self, card: SCard) {
-                    let ocard_next = self.next(card);
-                    let ocard_prev = self.prev(card);
-                    if let Some(card_next) = ocard_next.as_ref() {
-                        self.mapcardcard_prev[*card_next] = if let Some(card_prev) = ocard_prev.as_ref() {
-                            *card_prev
-                        } else {
-                            *card_next
-                        };
-                        assert_eq!(self.prev(*card_next), ocard_prev);
-                    }
-                    if let Some(card_prev) = ocard_prev.as_ref() {
-                        self.mapcardcard_next[*card_prev] = if let Some(card_next) = ocard_next.as_ref() {
-                            *card_next
-                        } else {
-                            *card_prev
-                        };
-                        assert_eq!(self.next(*card_prev), ocard_next);
-                    }
-                }
-                // fn remove_and_undo<R>(&mut self, card: SCard, f: impl FnOnce(&mut Self)->R) -> R {
-                //     let card_next = self.mapcardcard_next[card];
-                //     let card_prev = self.mapcardcard_prev[card];
-                //     self.mapcardcard_prev[card_next] = card_prev;
-                //     self.mapcardcard_next[card_prev] = card_next;
-                //     self.remove(card);
-                //     let r = f(self);
-                //     self.mapcardcard_next[card_prev] = card;
-                //     self.mapcardcard_prev[card_next] = card;
-                //     r
-                // }
-            }
             fn internal_explore_2(
                 stichseq: &mut SStichSequence,
                 ahand: &EnumMap<EPlayerIndex, SHand>,
@@ -433,161 +589,6 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 _n_stichseq_bound: usize,
                 mut map: HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
             ) -> HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)> {
-                trait TStichSize : TStaticValue<usize> {
-                    type Next: TStichSize;
-                }
-                macro_rules! define_stichsize{($stichsize:ident, $n:expr, $stichsize_next:ident) => {
-                    define_static_value!(pub $stichsize, usize, $n);
-                    impl TStichSize for $stichsize {
-                        type Next = $stichsize_next;
-                    }
-                }};
-                define_stichsize!(SStichSize0, 0, SStichSize1);
-                define_stichsize!(SStichSize1, 1, SStichSize2);
-                define_stichsize!(SStichSize2, 2, SStichSize3);
-                define_stichsize!(SStichSize3, 3, SStichSize4);
-                define_stichsize!(SStichSize4, 4, SStichSize0);
-                #[inline(always)]
-                fn find_relevant_stichs<
-                    StichSize: TStichSize,
-                    TFnSameParty: Fn(EPlayerIndex, EPlayerIndex)->bool,
-                >(
-                    stichseq: &mut SStichSequence,
-                    ahand: &EnumMap<EPlayerIndex, SHand>,
-                    rules: &dyn TRules,
-                    winidxcache: &SWinnerIndexCache,
-                    cluster: &SEquivalenceLists,
-                    epi_self: EPlayerIndex,
-                    fn_is_same_party: &TFnSameParty,
-                    vecstich_result: &mut Vec<SStich>,
-                ) {
-                    if StichSize::VALUE==EPlayerIndex::SIZE {
-                        vecstich_result.push(unwrap!(stichseq.completed_stichs().last()).clone()); // must yield this one to callers
-                    } else {
-                        let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
-                        macro_rules! dbg(($e:expr) => {$e});
-                        fn find_remove(veccard: &mut ArrayVec<[SCard; 8]>, card: SCard) -> bool {
-                            if let Some(i) = veccard.iter().position(|card_allowed| card_allowed==&card) {
-                                veccard.swap_remove(i);
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                        let mut veccard_allowed = dbg!(rules.all_allowed_cards(stichseq, &ahand[epi_current]));
-                        {
-                            while let Some(card_allowed) = veccard_allowed.pop() {
-                                use crate::rules::card_points::*;
-                                let n_stich_before = vecstich_result.len();
-                                let mut ab_points_seen = [false; 12];
-                                let mut card_first = card_allowed;
-                                let mut ocard_allowed_prev = cluster.prev(card_allowed);
-                                while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
-                                    if find_remove(&mut veccard_allowed, card_allowed_prev) {
-                                        card_first = card_allowed_prev;
-                                        ocard_allowed_prev = cluster.prev(card_allowed_prev);
-                                    }
-                                }
-                                let mut ocard_allowed_next = cluster.next(card_allowed);
-                                let mut ocard_last = ocard_allowed_next.clone();
-                                while let Some(card_allowed_next) = ocard_allowed_next.take() {
-                                    if find_remove(&mut veccard_allowed, card_allowed_next) {
-                                        ocard_allowed_next = cluster.next(card_allowed_next);
-                                        ocard_last = ocard_allowed_next.clone();
-                                    }
-                                }
-                                //println!("{} {:?}", card_first, ocard_last);
-                                let (mut card_lo, mut card_hi) = (card_first, card_first);
-                                loop {
-                                    let b_seen : &mut bool = &mut ab_points_seen[points_card(card_first).as_num::<usize>()];
-                                    if !*b_seen {
-                                        *b_seen = true;
-                                        if points_card(card_lo) > points_card(card_first) {
-                                            card_lo = card_first;
-                                        }
-                                        if points_card(card_hi) < points_card(card_first) {
-                                            card_hi = card_first;
-                                        }
-                                        stichseq.zugeben_and_restore_custom_winner_index(card_first, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
-                                            find_relevant_stichs::<StichSize::Next, _>(
-                                                stichseq,
-                                                ahand,
-                                                rules,
-                                                winidxcache,
-                                                cluster,
-                                                epi_self,
-                                                fn_is_same_party,
-                                                vecstich_result,
-                                            );
-                                        });
-                                    }
-                                    let ocard_next = cluster.next(card_first);
-                                    if ocard_next==ocard_last {
-                                        break;
-                                    } else if let Some(card_next) = verify!(ocard_next) {
-                                        card_first = card_next;
-                                    }
-                                }
-                                if vecstich_result[n_stich_before..]
-                                    .iter()
-                                    .map(|stich|
-                                        // TODO is this correct? Do we have to rely on winner_index directly?
-                                        fn_is_same_party(epi_current, debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)))
-                                    )
-                                    .all_equal()
-                                {
-                                    fn extend_with(
-                                        vecstich: &mut Vec<SStich>,
-                                        n_stich_before: usize,
-                                        fn_filter: impl Fn(&SStich)->bool,
-                                    ) {
-                                        // adapted from Vec::retain
-                                        let len = vecstich.len();
-                                        let mut del = 0;
-                                        {
-                                            let v = &mut **vecstich;
-                                            for i in n_stich_before..len {
-                                                if !fn_filter(&v[i]) {
-                                                    del += 1;
-                                                } else if del > 0 {
-                                                    v.swap(i - del, i); // TODO would it be more efficient to simply clone from i to i-del? (Profiling did not show significant improvement.)
-                                                }
-                                            }
-                                        }
-                                        if del > 0 {
-                                            vecstich.truncate(len - del);
-                                        }
-                                        // let mut i = 0;
-                                        // vecstich.retain(|stich| {
-                                        //     if i < n_stich_before {
-                                        //         i += 1;
-                                        //         true
-                                        //     } else {
-                                        //         fn_filter(stich)
-                                        //     }
-                                        // });
-                                    }
-
-                                    { // the following represents a OthersMin player
-                                        if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_result[n_stich_before]), rules.winner_index(&vecstich_result[n_stich_before]))) {
-                                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==card_lo);
-                                        } else {
-                                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==card_hi)
-                                        }
-                                    }
-
-                                    /*{ // the following represents a MaxPerEpi player
-                                        if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
-                                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==card_hi);
-                                        } else {
-                                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==card_lo)
-                                        }
-                                    }*/
-                                }
-                            }
-                        }
-                    }
-                }
                 let mut vecstich = Vec::with_capacity(4096);
                 use crate::primitives::card::card_values::*;
                 find_relevant_stichs::<SStichSize0, _>(
@@ -729,6 +730,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
     panic!("Nur bis hier.");
 
 
+    let b_verbose = clapmatches.is_present("verbose");
     let eremainingcards = unwrap!(ERemainingCards::checked_from_usize(remaining_cards_per_hand(&stichseq)[epi_fixed] - 1));
     let determinebestcardresult = { // we are interested in payout => single-card-optimization useless
         macro_rules! forward{(($itahand: expr), ($func_filter_allowed_cards: expr), ($foreachsnapshot: ident),) => {{ // TODORUST generic closures
