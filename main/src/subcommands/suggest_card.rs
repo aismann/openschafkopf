@@ -585,6 +585,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             fn internal_explore_2(
                 stichseq: &mut SStichSequence,
                 ahand: &mut EnumMap<EPlayerIndex, SHand>,
+                rulestatecache: &mut SRuleStateCache,
                 n_stichs_bound: usize,
                 rules: &dyn TRules,
                 winidxcache: &SWinnerIndexCache,
@@ -594,10 +595,13 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 assert!(ahand.iter().map(|hand| hand.cards().len()).all_equal());
                 let beginning = SBeginning::new(
                     &stichseq,
-                    &SRuleStateCacheChanging::new(
-                        &stichseq,
-                        &ahand,
-                        |stich| debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)),
+                    debug_verify_eq!(
+                        &rulestatecache.changing,
+                        &SRuleStateCacheChanging::new(
+                            &stichseq,
+                            &ahand,
+                            |stich| debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)),
+                        )
                     ),
                 );
                 if !map[stichseq.completed_stichs().len()].insert(beginning) {
@@ -639,15 +643,18 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         stichseq.zugeben_and_restore_custom_winner_index(slccard[1], winner_index!(), |stichseq| {
                         stichseq.zugeben_and_restore_custom_winner_index(slccard[2], winner_index!(), |stichseq| {
                         stichseq.zugeben_and_restore_custom_winner_index(slccard[3], winner_index!(), |stichseq| {
+                            let unregisterstich = rulestatecache.register_stich(stich, winner_index!()(&stich));
                             internal_explore_2(
                                 stichseq,
                                 ahand,
+                                rulestatecache,
                                 n_stichs_bound,
                                 rules,
                                 winidxcache,
                                 map,
                                 fn_final,
                             );
+                            rulestatecache.unregister_stich(unregisterstich);
                         });
                         });
                         });
@@ -675,6 +682,13 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 internal_explore_2(
                     stichseq,
                     ahand,
+                    &mut SRuleStateCache::new(
+                        stichseq,
+                        ahand,
+                        |stich| {
+                            debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich))
+                        },
+                    ),
                     /*n_stichs_bound*/slcstep.len(),
                     rules,
                     winidxcache,
