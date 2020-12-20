@@ -6,7 +6,6 @@ use crate::rules::*;
 use crate::cardvector::*;
 use itertools::*;
 use combine::{char::*, *};
-use fxhash::FxHashMap as HashMap;
 use fxhash::FxHashSet as HashSet;
 use rand::prelude::*;
 use arrayvec::ArrayVec;
@@ -589,7 +588,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 n_stichs_bound: usize,
                 rules: &dyn TRules,
                 winidxcache: &SWinnerIndexCache,
-                map: &mut HashMap<usize, HashSet::<SBeginning>>,
+                map: &mut [HashSet::<SBeginning>; ERemainingCards::SIZE+1],
                 fn_final: &mut impl FnMut(),
             ) {
                 assert!(ahand.iter().map(|hand| hand.cards().len()).all_equal());
@@ -601,10 +600,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         |stich| debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)),
                     ),
                 );
-                if {
-                    let set = map.entry(stichseq.completed_stichs().len()).or_default();
-                    !set.insert(beginning)
-                } {
+                if !map[stichseq.completed_stichs().len()].insert(beginning) {
                     return;
                 } else if ahand[EPlayerIndex::EPI0].cards().len()>0 && stichseq.completed_stichs().len() < n_stichs_bound {
                     let mut vecstich = Vec::with_capacity(4096);
