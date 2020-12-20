@@ -279,15 +279,28 @@ impl std::str::FromStr for VConstraint {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+struct SSetCard {
+    n: usize,
+}
+impl SSetCard {
+    fn new() -> Self {
+        Self {n:0}
+    }
+    fn play(&mut self, card: SCard) {
+        self.n |= 1<<card.to_usize();
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 struct SBeginning {
-    setcard: EnumMap<SCard, bool>,
+    setcard: SSetCard,
     pointstichcount_epi0: SPointStichCount,
     pointstichcount_other: SPointStichCount,
     epi_current: EPlayerIndex,
 }
 impl SBeginning {
-    fn new(setcard: EnumMap<SCard, bool>, stichseq: &SStichSequence, rulestatecachechanging: &SRuleStateCacheChanging) -> Self {
+    fn new(setcard: SSetCard, stichseq: &SStichSequence, rulestatecachechanging: &SRuleStateCacheChanging) -> Self {
         Self {
             setcard,
             pointstichcount_epi0: rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI0].clone(),
@@ -578,7 +591,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             fn internal_explore_2(
                 stichseq: &mut SStichSequence,
                 ahand: &mut EnumMap<EPlayerIndex, SHand>,
-                setcard_played: &mut EnumMap<SCard, bool>,
+                setcard_played: SSetCard,
                 rulestatecache: &mut SRuleStateCache,
                 n_stichs_bound: usize,
                 rules: &dyn TRules,
@@ -588,7 +601,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             ) {
                 assert!(ahand.iter().map(|hand| hand.cards().len()).all_equal());
                 let beginning = SBeginning::new(
-                    setcard_played.clone(),
+                    setcard_played,
                     &stichseq,
                     debug_verify_eq!(
                         &rulestatecache.changing,
@@ -634,19 +647,20 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                             debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich))
                         }}};
                         // TODO introduce push_pop_stich
+                        let mut setcard_played_new = setcard_played;
+                        setcard_played_new.play(slccard[0]);
+                        setcard_played_new.play(slccard[1]);
+                        setcard_played_new.play(slccard[2]);
+                        setcard_played_new.play(slccard[3]);
                         stichseq.zugeben_and_restore_custom_winner_index(slccard[0], winner_index!(), |stichseq| {
-                            setcard_played[slccard[0]] = true;
                             stichseq.zugeben_and_restore_custom_winner_index(slccard[1], winner_index!(), |stichseq| {
-                                setcard_played[slccard[1]] = true;
                                 stichseq.zugeben_and_restore_custom_winner_index(slccard[2], winner_index!(), |stichseq| {
-                                    setcard_played[slccard[2]] = true;
                                     stichseq.zugeben_and_restore_custom_winner_index(slccard[3], winner_index!(), |stichseq| {
-                                        setcard_played[slccard[3]] = true;
                                         let unregisterstich = rulestatecache.register_stich(stich, winner_index!()(&stich));
                                         internal_explore_2(
                                             stichseq,
                                             ahand,
-                                            setcard_played,
+                                            setcard_played_new,
                                             rulestatecache,
                                             n_stichs_bound,
                                             rules,
@@ -655,13 +669,9 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                             fn_final,
                                             );
                                         rulestatecache.unregister_stich(unregisterstich);
-                                        setcard_played[slccard[3]] = false;
                                     });
-                                    setcard_played[slccard[2]] = false;
                                 });
-                                setcard_played[slccard[1]] = false;
                             });
-                            setcard_played[slccard[0]] = false;
                         });
                         for (epi, &card) in stich.iter() {
                             ahand[epi].add_card(card);
@@ -686,12 +696,11 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 internal_explore_2(
                     stichseq,
                     ahand,
-                    &mut {
-                        let mut setcard = SCard::map_from_fn(|_| false);
+                    {
+                        let mut setcard = SSetCard::new();
                         for stich in stichseq.visible_stichs() {
                             for card in stich.elements_in_order() {
-                                assert!(!setcard[*card]); // relatively expensive
-                                setcard[*card] = true;
+                                setcard.play(*card);
                             }
                         }
                         setcard
