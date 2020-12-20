@@ -287,14 +287,7 @@ struct SBeginning {
     epi_current: EPlayerIndex,
 }
 impl SBeginning {
-    fn new(stichseq: &SStichSequence, rulestatecachechanging: &SRuleStateCacheChanging) -> Self {
-        let mut setcard = SCard::map_from_fn(|_| false);
-        for stich in stichseq.visible_stichs() {
-            for (_, card) in stich.iter() {
-                debug_assert!(!setcard[*card]); // relatively expensive
-                setcard[*card] = true;
-            }
-        }
+    fn new(setcard: EnumMap<SCard, bool>, stichseq: &SStichSequence, rulestatecachechanging: &SRuleStateCacheChanging) -> Self {
         Self {
             setcard,
             pointstichcount_epi0: rulestatecachechanging.mapepipointstichcount[EPlayerIndex::EPI0].clone(),
@@ -585,6 +578,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             fn internal_explore_2(
                 stichseq: &mut SStichSequence,
                 ahand: &mut EnumMap<EPlayerIndex, SHand>,
+                setcard_played: &mut EnumMap<SCard, bool>,
                 rulestatecache: &mut SRuleStateCache,
                 n_stichs_bound: usize,
                 rules: &dyn TRules,
@@ -594,6 +588,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             ) {
                 assert!(ahand.iter().map(|hand| hand.cards().len()).all_equal());
                 let beginning = SBeginning::new(
+                    setcard_played.clone(),
                     &stichseq,
                     debug_verify_eq!(
                         &rulestatecache.changing,
@@ -640,24 +635,33 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         }}};
                         // TODO introduce push_pop_stich
                         stichseq.zugeben_and_restore_custom_winner_index(slccard[0], winner_index!(), |stichseq| {
-                        stichseq.zugeben_and_restore_custom_winner_index(slccard[1], winner_index!(), |stichseq| {
-                        stichseq.zugeben_and_restore_custom_winner_index(slccard[2], winner_index!(), |stichseq| {
-                        stichseq.zugeben_and_restore_custom_winner_index(slccard[3], winner_index!(), |stichseq| {
-                            let unregisterstich = rulestatecache.register_stich(stich, winner_index!()(&stich));
-                            internal_explore_2(
-                                stichseq,
-                                ahand,
-                                rulestatecache,
-                                n_stichs_bound,
-                                rules,
-                                winidxcache,
-                                map,
-                                fn_final,
-                            );
-                            rulestatecache.unregister_stich(unregisterstich);
-                        });
-                        });
-                        });
+                            setcard_played[slccard[0]] = true;
+                            stichseq.zugeben_and_restore_custom_winner_index(slccard[1], winner_index!(), |stichseq| {
+                                setcard_played[slccard[1]] = true;
+                                stichseq.zugeben_and_restore_custom_winner_index(slccard[2], winner_index!(), |stichseq| {
+                                    setcard_played[slccard[2]] = true;
+                                    stichseq.zugeben_and_restore_custom_winner_index(slccard[3], winner_index!(), |stichseq| {
+                                        setcard_played[slccard[3]] = true;
+                                        let unregisterstich = rulestatecache.register_stich(stich, winner_index!()(&stich));
+                                        internal_explore_2(
+                                            stichseq,
+                                            ahand,
+                                            setcard_played,
+                                            rulestatecache,
+                                            n_stichs_bound,
+                                            rules,
+                                            winidxcache,
+                                            map,
+                                            fn_final,
+                                            );
+                                        rulestatecache.unregister_stich(unregisterstich);
+                                        setcard_played[slccard[3]] = false;
+                                    });
+                                    setcard_played[slccard[2]] = false;
+                                });
+                                setcard_played[slccard[1]] = false;
+                            });
+                            setcard_played[slccard[0]] = false;
                         });
                         for (epi, &card) in stich.iter() {
                             ahand[epi].add_card(card);
@@ -682,6 +686,16 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 internal_explore_2(
                     stichseq,
                     ahand,
+                    &mut {
+                        let mut setcard = SCard::map_from_fn(|_| false);
+                        for stich in stichseq.visible_stichs() {
+                            for card in stich.elements_in_order() {
+                                assert!(!setcard[*card]); // relatively expensive
+                                setcard[*card] = true;
+                            }
+                        }
+                        setcard
+                    },
                     &mut SRuleStateCache::new(
                         stichseq,
                         ahand,
