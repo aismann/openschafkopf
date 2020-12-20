@@ -7,6 +7,7 @@ use crate::cardvector::*;
 use itertools::*;
 use combine::{char::*, *};
 use fxhash::FxHashMap as HashMap;
+use fxhash::FxHashSet as HashSet;
 use rand::prelude::*;
 use arrayvec::ArrayVec;
 
@@ -584,127 +585,120 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
         {
             fn internal_explore_2(
                 stichseq: &mut SStichSequence,
-                ahand: &EnumMap<EPlayerIndex, SHand>,
+                ahand: &mut EnumMap<EPlayerIndex, SHand>,
+                n_stichs_bound: usize,
                 rules: &dyn TRules,
                 winidxcache: &SWinnerIndexCache,
-                mut map: HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
-            ) -> HashMap::<SBeginning, (SStichSequence, EnumMap<EPlayerIndex, SHand>)> {
-                let mut vecstich = Vec::with_capacity(4096);
-                use crate::primitives::card::card_values::*;
-                find_relevant_stichs::<SStichSize0, _>(
-                    stichseq,
-                    ahand,
-                    rules,
-                    winidxcache,
-                    &SEquivalenceLists::new(
-                        &[
-                            &[EO, GO, HO, SO, EU, GU, HU, SU, HA, HZ, HK, H9, H8, H7],
-                            &[EA, EZ, EK, E9, E8, E7],
-                            &[GA, GZ, GK, G9, G8, G7],
-                            &[SA, SZ, SK, S9, S8, S7],
-                        ],
-                        stichseq,
+                map: &mut HashMap<usize, HashSet::<SBeginning>>,
+                fn_final: &mut impl FnMut(),
+            ) {
+                assert!(ahand.iter().map(|hand| hand.cards().len()).all_equal());
+                let beginning = SBeginning::new(
+                    &stichseq,
+                    &SRuleStateCacheChanging::new(
+                        &stichseq,
+                        &ahand,
+                        |stich| debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)),
                     ),
-                    EPlayerIndex::EPI0,
-                    &|epi_lhs, epi_rhs| (epi_lhs==EPlayerIndex::EPI0)==(epi_rhs==EPlayerIndex::EPI0),
-                    &mut vecstich,
                 );
-
-
-                let n_map_len_before = map.len();
-                for stich in vecstich.iter() {
-                    let mut stichseq = stichseq.clone();
-                    assert_eq!(stichseq.current_stich().size(), 0);
-                    assert_eq!(stichseq.current_stich().first_playerindex(), stich.first_playerindex());
-                    let mut ahand = ahand.clone();
-                    for (epi, &card) in stich.iter() {
-                        stichseq.zugeben_custom_winner_index(card, |stich| {
-                            debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich))
-                        });
-                        ahand[epi].play_card_2(card);
-                    }
-                    map.insert(
-                        SBeginning::new(
-                            &stichseq,
-                            &SRuleStateCacheChanging::new(
-                                &stichseq,
-                                &ahand,
-                                |stich| debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)),
-                            ),
+                if {
+                    let set = map.entry(stichseq.completed_stichs().len()).or_default();
+                    !set.insert(beginning)
+                } {
+                    return;
+                } else if ahand[EPlayerIndex::EPI0].cards().len()>0 && stichseq.completed_stichs().len() < n_stichs_bound {
+                    let mut vecstich = Vec::with_capacity(4096);
+                    use crate::primitives::card::card_values::*;
+                    find_relevant_stichs::<SStichSize0, _>(
+                        stichseq,
+                        ahand,
+                        rules,
+                        winidxcache,
+                        &SEquivalenceLists::new(
+                            &[
+                                &[EO, GO, HO, SO, EU, GU, HU, SU, HA, HZ, HK, H9, H8, H7],
+                                &[EA, EZ, EK, E9, E8, E7],
+                                &[GA, GZ, GK, G9, G8, G7],
+                                &[SA, SZ, SK, S9, S8, S7],
+                            ],
+                            stichseq,
                         ),
-                        (stichseq, ahand)
+                        EPlayerIndex::EPI0,
+                        &|epi_lhs, epi_rhs| (epi_lhs==EPlayerIndex::EPI0)==(epi_rhs==EPlayerIndex::EPI0),
+                        &mut vecstich,
                     );
+                    for stich in vecstich.iter() {
+                        assert_eq!(stichseq.current_stich().size(), 0);
+                        assert_eq!(stichseq.current_stich().first_playerindex(), stich.first_playerindex());
+                        for (epi, &card) in stich.iter() {
+                            ahand[epi].play_card_2(card);
+                        }
+                        let slccard = stich.elements_in_order();
+                        assert_eq!(slccard.len(), EPlayerIndex::SIZE);
+                        macro_rules! winner_index{() => { |stich| {
+                            debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich))
+                        }}};
+                        // TODO introduce push_pop_stich
+                        stichseq.zugeben_and_restore_custom_winner_index(slccard[0], winner_index!(), |stichseq| {
+                        stichseq.zugeben_and_restore_custom_winner_index(slccard[1], winner_index!(), |stichseq| {
+                        stichseq.zugeben_and_restore_custom_winner_index(slccard[2], winner_index!(), |stichseq| {
+                        stichseq.zugeben_and_restore_custom_winner_index(slccard[3], winner_index!(), |stichseq| {
+                            internal_explore_2(
+                                stichseq,
+                                ahand,
+                                n_stichs_bound,
+                                rules,
+                                winidxcache,
+                                map,
+                                fn_final,
+                            );
+                        });
+                        });
+                        });
+                        });
+                        for (epi, &card) in stich.iter() {
+                            ahand[epi].add_card(card);
+                        }
+                    }
+                } else {
+                    fn_final();
                 }
-                println!("{} states compressed to {} ({} total)", vecstich.len(), map.len() - n_map_len_before, map.len());
-                map
-
-
-
             }
             #[derive(new)]
             struct SStep {
                 n_batch: usize,
             }
             fn doit(
-                ittplstichseqahand: impl Iterator<Item=(SStichSequence, EnumMap<EPlayerIndex, SHand>)>,
+                stichseq: &mut SStichSequence,
+                ahand: &mut EnumMap<EPlayerIndex, SHand>,
                 rules: &dyn TRules,
                 winidxcache: &SWinnerIndexCache,
                 slcstep: &[SStep],
-                f_percent_lo: f32,
-                f_percent_hi: f32,
             ) {
-                println!("{:03}% at depth: {}", f_percent_lo, slcstep.len());
-                if let Some((step, slcstep_rest)) = slcstep.split_first() {
-                    let map = ittplstichseqahand.fold(Default::default(), |map, (mut stichseq, ahand)| {
-                        internal_explore_2(
-                            &mut stichseq,
-                            &ahand,
-                            rules,
-                            winidxcache,
-                            map,
-                        )
-                    });
-                    let f_chunks = (map.len() / step.n_batch + 1) as f32;
-                    let percentage = |i_chunk| (i_chunk as f32/f_chunks)*(f_percent_hi-f_percent_lo)+f_percent_lo;
-                    for (i_chunk, chunk) in map.into_iter().chunks(step.n_batch).into_iter().enumerate() {
-                        doit(
-                            Box::new(chunk.map(|(_, (stichseq, ahand))| (stichseq, ahand))) as Box<dyn Iterator<Item=(SStichSequence, EnumMap<EPlayerIndex, SHand>)>>,
-                            rules,
-                            winidxcache,
-                            slcstep_rest,
-                            percentage(i_chunk),
-                            percentage(i_chunk + 1),
-                        );
-                    }
-                } else {
-                    // for (mut stichseq, mut ahand) in ittplstichseqahand {
-                    //     explore_snapshots(
-                    //         &mut ahand,
-                    //         rules,
-                    //         &mut stichseq,
-                    //         &|_, _| (),
-                    //         &SMinReachablePayoutLowerBoundViaHint::new(
-                    //             rules,
-                    //             EPlayerIndex::EPI0,
-                    //             (0, 0),
-                    //             0,
-                    //         ),
-                    //         None,
-                    //     );
-                    // }
-                }
+                let mut n_count = 0;
+                internal_explore_2(
+                    stichseq,
+                    ahand,
+                    /*n_stichs_bound*/slcstep.len(),
+                    rules,
+                    winidxcache,
+                    &mut Default::default(),
+                    /*fn_final*/&mut || {
+                        n_count += 1;
+                    },
+                );
+                println!("n_count={}", n_count);
             }
             let vecstep : Vec<_> = unwrap!(clapmatches.value_of("batch")).split(',').map(|str_step| {
                 let (str_depth, _str_chunk) = unwrap!(str_step.split(' ').collect_tuple());
                 SStep::new(unwrap!(str_depth.parse()))
             }).collect();
             doit(
-                std::iter::once((SStichSequence::new(EKurzLang::Lang), ahand.clone())),
+                &mut SStichSequence::new(EKurzLang::Lang),
+                &mut ahand.clone(),
                 rules,
                 &SWinnerIndexCache::new(&ahand, rules),
                 &vecstep,
-                0.,
-                100.,
             );
         }
     }
