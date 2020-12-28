@@ -399,37 +399,50 @@ impl SEquivalenceLists {
 
 trait TVecExt<T> {
     fn retain_from_to_end(&mut self, i_start: usize, fn_filter: impl Fn(&T)->bool);
+    fn find_remove(&mut self, t: &T) -> bool where T: Eq;
 }
 
-impl<T> TVecExt<T> for Vec<T> {
-    fn retain_from_to_end(&mut self, i_start: usize, fn_filter: impl Fn(&T)->bool) {
-        // adapted from Vec::retain
-        let len = self.len();
-        let mut del = 0;
-        {
-            let v = &mut **self;
-            for i in i_start..len {
-                if !fn_filter(&v[i]) {
-                    del += 1;
-                } else if del > 0 {
-                    v.swap(i - del, i); // TODO would it be more efficient to simply clone from i to i-del? (Profiling did not show significant improvement.)
+macro_rules! impl_vecext{($t:ty) => {
+    impl<T> TVecExt<T> for $t {
+        fn retain_from_to_end(&mut self, i_start: usize, fn_filter: impl Fn(&T)->bool) {
+            // adapted from Vec::retain
+            let len = self.len();
+            let mut del = 0;
+            {
+                let v = &mut **self;
+                for i in i_start..len {
+                    if !fn_filter(&v[i]) {
+                        del += 1;
+                    } else if del > 0 {
+                        v.swap(i - del, i); // TODO would it be more efficient to simply clone from i to i-del? (Profiling did not show significant improvement.)
+                    }
                 }
             }
+            if del > 0 {
+                self.truncate(len - del);
+            }
+            // let mut i = 0;
+            // self.retain(|stich| {
+            //     if i < i_start {
+            //         i += 1;
+            //         true
+            //     } else {
+            //         fn_filter(stich)
+            //     }
+            // });
         }
-        if del > 0 {
-            self.truncate(len - del);
+        fn find_remove(&mut self, t: &T) -> bool where T: Eq {
+            if let Some(i) = self.iter().position(|t_in_vec| t_in_vec==t) {
+                self.swap_remove(i);
+                true
+            } else {
+                false
+            }
         }
-        // let mut i = 0;
-        // self.retain(|stich| {
-        //     if i < i_start {
-        //         i += 1;
-        //         true
-        //     } else {
-        //         fn_filter(stich)
-        //     }
-        // });
     }
-}
+}}
+impl_vecext!(Vec<T>);
+impl_vecext!(ArrayVec<[T; 8]>);
 
 
 trait TStichSize : TStaticValue<usize> {
@@ -465,14 +478,6 @@ fn find_relevant_stichs<
     } else {
         let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
         macro_rules! dbg(($e:expr) => {$e});
-        fn find_remove(veccard: &mut ArrayVec<[SCard; 8]>, card: SCard) -> bool {
-            if let Some(i) = veccard.iter().position(|card_allowed| card_allowed==&card) {
-                veccard.swap_remove(i);
-                true
-            } else {
-                false
-            }
-        }
         let mut veccard_allowed = dbg!(rules.all_allowed_cards(stichseq, &ahand[epi_current]));
         {
             while let Some(card_allowed) = veccard_allowed.pop() {
@@ -482,7 +487,7 @@ fn find_relevant_stichs<
                 let mut card_first = card_allowed;
                 let mut ocard_allowed_prev = cluster.prev(card_allowed);
                 while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
-                    if find_remove(&mut veccard_allowed, card_allowed_prev) {
+                    if veccard_allowed.find_remove(&card_allowed_prev) {
                         card_first = card_allowed_prev;
                         ocard_allowed_prev = cluster.prev(card_allowed_prev);
                     }
@@ -490,7 +495,7 @@ fn find_relevant_stichs<
                 let mut ocard_allowed_next = cluster.next(card_allowed);
                 let mut ocard_last = ocard_allowed_next.clone();
                 while let Some(card_allowed_next) = ocard_allowed_next.take() {
-                    if find_remove(&mut veccard_allowed, card_allowed_next) {
+                    if veccard_allowed.find_remove(&card_allowed_next) {
                         ocard_allowed_next = cluster.next(card_allowed_next);
                         ocard_last = ocard_allowed_next.clone();
                     }
