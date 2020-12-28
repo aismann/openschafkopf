@@ -397,6 +397,41 @@ impl SEquivalenceLists {
     // }
 }
 
+trait TVecExt<T> {
+    fn retain_from_to_end(&mut self, i_start: usize, fn_filter: impl Fn(&T)->bool);
+}
+
+impl<T> TVecExt<T> for Vec<T> {
+    fn retain_from_to_end(&mut self, i_start: usize, fn_filter: impl Fn(&T)->bool) {
+        // adapted from Vec::retain
+        let len = self.len();
+        let mut del = 0;
+        {
+            let v = &mut **self;
+            for i in i_start..len {
+                if !fn_filter(&v[i]) {
+                    del += 1;
+                } else if del > 0 {
+                    v.swap(i - del, i); // TODO would it be more efficient to simply clone from i to i-del? (Profiling did not show significant improvement.)
+                }
+            }
+        }
+        if del > 0 {
+            self.truncate(len - del);
+        }
+        // let mut i = 0;
+        // self.retain(|stich| {
+        //     if i < i_start {
+        //         i += 1;
+        //         true
+        //     } else {
+        //         fn_filter(stich)
+        //     }
+        // });
+    }
+}
+
+
 trait TStichSize : TStaticValue<usize> {
     type Next: TStichSize;
 }
@@ -500,51 +535,19 @@ fn find_relevant_stichs<
                     )
                     .all_equal()
                 {
-                    fn extend_with(
-                        vecstich: &mut Vec<SStich>,
-                        n_stich_before: usize,
-                        fn_filter: impl Fn(&SStich)->bool,
-                    ) {
-                        // adapted from Vec::retain
-                        let len = vecstich.len();
-                        let mut del = 0;
-                        {
-                            let v = &mut **vecstich;
-                            for i in n_stich_before..len {
-                                if !fn_filter(&v[i]) {
-                                    del += 1;
-                                } else if del > 0 {
-                                    v.swap(i - del, i); // TODO would it be more efficient to simply clone from i to i-del? (Profiling did not show significant improvement.)
-                                }
-                            }
-                        }
-                        if del > 0 {
-                            vecstich.truncate(len - del);
-                        }
-                        // let mut i = 0;
-                        // vecstich.retain(|stich| {
-                        //     if i < n_stich_before {
-                        //         i += 1;
-                        //         true
-                        //     } else {
-                        //         fn_filter(stich)
-                        //     }
-                        // });
-                    }
-
                     { // the following represents a OthersMin player
                         if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_result[n_stich_before]), rules.winner_index(&vecstich_result[n_stich_before]))) {
-                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==card_lo);
+                            vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_lo);
                         } else {
-                            extend_with(vecstich_result, n_stich_before, |stich| stich[epi_current]==card_hi)
+                            vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_hi)
                         }
                     }
 
                     /*{ // the following represents a MaxPerEpi player
                         if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
-                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==card_hi);
+                            vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_hi);
                         } else {
-                            extend_with(vecstich_result, vecstich_candidate, |stich| stich[epi_current]==card_lo)
+                            vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_lo)
                         }
                     }*/
                 }
