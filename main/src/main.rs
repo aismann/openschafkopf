@@ -54,7 +54,7 @@ fn main() -> Result<(), Error> {
                 .arg(clap::Arg::with_name("verbose").long("verbose").short("v"))
                 .arg(clap::Arg::with_name("prune").long("prune").takes_value(true))
                 .arg(clap::Arg::with_name("constrain_hands").long("constrain-hands").takes_value(true))
-                .arg(clap::Arg::with_name("batch").long("batch").takes_value(true).required(true))
+                .arg(clap::Arg::with_name("depth").long("depth").takes_value(true).required(true))
         })
         .subcommand(clap::SubCommand::with_name("analyze")
             .about("Analyze played games and spot suboptimal decisions")

@@ -689,16 +689,12 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     fn_final();
                 }
             }
-            #[derive(new)]
-            struct SStep {
-                n_batch: usize,
-            }
             fn doit(
                 stichseq: &mut SStichSequence,
                 ahand: &mut EnumMap<EPlayerIndex, SHand>,
                 rules: &dyn TRules,
                 winidxcache: &SWinnerIndexCache,
-                slcstep: &[SStep],
+                n_stichs_bound: usize,
             ) {
                 let mut n_count = 0;
                 internal_explore_2(
@@ -720,7 +716,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                             debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich))
                         },
                     ),
-                    /*n_stichs_bound*/slcstep.len(),
+                    n_stichs_bound,
                     rules,
                     winidxcache,
                     &mut Default::default(),
@@ -730,16 +726,12 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 );
                 println!("n_count={}", n_count);
             }
-            let vecstep : Vec<_> = unwrap!(clapmatches.value_of("batch")).split(',').map(|str_step| {
-                let (str_depth, _str_chunk) = unwrap!(str_step.split(' ').collect_tuple());
-                SStep::new(unwrap!(str_depth.parse()))
-            }).collect();
             doit(
                 &mut SStichSequence::new(EKurzLang::Lang),
                 &mut ahand.clone(),
                 rules,
                 &SWinnerIndexCache::new(&ahand, rules),
-                &vecstep,
+                unwrap!(unwrap!(clapmatches.value_of("depth")).parse()),
             );
         }
     }
