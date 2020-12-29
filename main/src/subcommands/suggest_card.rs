@@ -479,83 +479,81 @@ fn find_relevant_stichs<
         let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
         macro_rules! dbg(($e:expr) => {$e});
         let mut veccard_allowed = dbg!(rules.all_allowed_cards(stichseq, &ahand[epi_current]));
-        {
-            while let Some(card_allowed) = veccard_allowed.pop() {
-                use crate::rules::card_points::*;
-                let n_stich_before = vecstich_result.len();
-                let mut ab_points_seen = [false; 12];
-                let mut card_first = card_allowed;
-                let mut ocard_allowed_prev = cluster.prev(card_allowed);
-                while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
-                    if veccard_allowed.find_remove(&card_allowed_prev) {
-                        card_first = card_allowed_prev;
-                        ocard_allowed_prev = cluster.prev(card_allowed_prev);
+        while let Some(card_allowed) = veccard_allowed.pop() {
+            use crate::rules::card_points::*;
+            let n_stich_before = vecstich_result.len();
+            let mut ab_points_seen = [false; 12];
+            let mut card_first = card_allowed;
+            let mut ocard_allowed_prev = cluster.prev(card_allowed);
+            while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
+                if veccard_allowed.find_remove(&card_allowed_prev) {
+                    card_first = card_allowed_prev;
+                    ocard_allowed_prev = cluster.prev(card_allowed_prev);
+                }
+            }
+            let mut ocard_allowed_next = cluster.next(card_allowed);
+            let mut ocard_last = ocard_allowed_next.clone();
+            while let Some(card_allowed_next) = ocard_allowed_next.take() {
+                if veccard_allowed.find_remove(&card_allowed_next) {
+                    ocard_allowed_next = cluster.next(card_allowed_next);
+                    ocard_last = ocard_allowed_next.clone();
+                }
+            }
+            //println!("{} {:?}", card_first, ocard_last);
+            let (mut card_lo, mut card_hi) = (card_first, card_first);
+            loop {
+                let b_seen : &mut bool = &mut ab_points_seen[points_card(card_first).as_num::<usize>()];
+                if !*b_seen {
+                    *b_seen = true;
+                    if points_card(card_lo) > points_card(card_first) {
+                        card_lo = card_first;
+                    }
+                    if points_card(card_hi) < points_card(card_first) {
+                        card_hi = card_first;
+                    }
+                    stichseq.zugeben_and_restore_custom_winner_index(card_first, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
+                        find_relevant_stichs::<StichSize::Next, _>(
+                            stichseq,
+                            ahand,
+                            rules,
+                            winidxcache,
+                            cluster,
+                            epi_self,
+                            fn_is_same_party,
+                            vecstich_result,
+                        );
+                    });
+                }
+                let ocard_next = cluster.next(card_first);
+                if ocard_next==ocard_last {
+                    break;
+                } else if let Some(card_next) = verify!(ocard_next) {
+                    card_first = card_next;
+                }
+            }
+            if vecstich_result[n_stich_before..]
+                .iter()
+                .map(|stich|
+                    // TODO is this correct? Do we have to rely on winner_index directly?
+                    fn_is_same_party(epi_current, debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)))
+                )
+                .all_equal()
+            {
+                { // the following represents a OthersMin player
+                    if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_result[n_stich_before]), rules.winner_index(&vecstich_result[n_stich_before]))) {
+                        vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_lo);
+                    } else {
+                        vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_hi)
                     }
                 }
-                let mut ocard_allowed_next = cluster.next(card_allowed);
-                let mut ocard_last = ocard_allowed_next.clone();
-                while let Some(card_allowed_next) = ocard_allowed_next.take() {
-                    if veccard_allowed.find_remove(&card_allowed_next) {
-                        ocard_allowed_next = cluster.next(card_allowed_next);
-                        ocard_last = ocard_allowed_next.clone();
-                    }
-                }
-                //println!("{} {:?}", card_first, ocard_last);
-                let (mut card_lo, mut card_hi) = (card_first, card_first);
-                loop {
-                    let b_seen : &mut bool = &mut ab_points_seen[points_card(card_first).as_num::<usize>()];
-                    if !*b_seen {
-                        *b_seen = true;
-                        if points_card(card_lo) > points_card(card_first) {
-                            card_lo = card_first;
-                        }
-                        if points_card(card_hi) < points_card(card_first) {
-                            card_hi = card_first;
-                        }
-                        stichseq.zugeben_and_restore_custom_winner_index(card_first, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
-                            find_relevant_stichs::<StichSize::Next, _>(
-                                stichseq,
-                                ahand,
-                                rules,
-                                winidxcache,
-                                cluster,
-                                epi_self,
-                                fn_is_same_party,
-                                vecstich_result,
-                            );
-                        });
-                    }
-                    let ocard_next = cluster.next(card_first);
-                    if ocard_next==ocard_last {
-                        break;
-                    } else if let Some(card_next) = verify!(ocard_next) {
-                        card_first = card_next;
-                    }
-                }
-                if vecstich_result[n_stich_before..]
-                    .iter()
-                    .map(|stich|
-                        // TODO is this correct? Do we have to rely on winner_index directly?
-                        fn_is_same_party(epi_current, debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)))
-                    )
-                    .all_equal()
-                {
-                    { // the following represents a OthersMin player
-                        if fn_is_same_party(epi_self, debug_verify_eq!(winidxcache.get(&vecstich_result[n_stich_before]), rules.winner_index(&vecstich_result[n_stich_before]))) {
-                            vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_lo);
-                        } else {
-                            vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_hi)
-                        }
-                    }
 
-                    /*{ // the following represents a MaxPerEpi player
-                        if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
-                            vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_hi);
-                        } else {
-                            vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_lo)
-                        }
-                    }*/
-                }
+                /*{ // the following represents a MaxPerEpi player
+                    if fn_is_same_party(epi_current, rules.winner_index(&vecstich_candidate[0])) {
+                        vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_hi);
+                    } else {
+                        vecstich_result.retain_from_to_end(n_stich_before, |stich| stich[epi_current]==card_lo)
+                    }
+                }*/
             }
         }
     }
