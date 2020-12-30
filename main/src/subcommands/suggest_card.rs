@@ -503,9 +503,7 @@ fn find_relevant_stichs<
             //println!("{} {:?}", card_first, ocard_last);
             let (mut card_lo, mut card_hi) = (card_first, card_first);
             loop {
-                let b_seen : &mut bool = &mut ab_points_seen[points_card(card_first).as_num::<usize>()];
-                if !*b_seen {
-                    *b_seen = true;
+                if assign_other(&mut ab_points_seen[points_card(card_first).as_num::<usize>()], true) {
                     if points_card(card_lo) > points_card(card_first) {
                         card_lo = card_first;
                     }
