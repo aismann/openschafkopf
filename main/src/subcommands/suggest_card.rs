@@ -693,7 +693,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 winidxcache: &SWinnerIndexCache,
                 n_stichs_bound: usize,
             ) {
-                let mut n_count = 0;
+                let mut asetbeginning = Default::default();
                 internal_explore_2(
                     stichseq,
                     ahand,
@@ -716,12 +716,10 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     n_stichs_bound,
                     rules,
                     winidxcache,
-                    &mut Default::default(),
-                    /*fn_final*/&mut || {
-                        n_count += 1;
-                    },
+                    &mut asetbeginning,
+                    /*fn_final*/&mut || {},
                 );
-                println!("n_count={}", n_count);
+                println!("{}", asetbeginning.iter().map(|setbeginning| setbeginning.len()).join(", "));
             }
             doit(
                 &mut SStichSequence::new(EKurzLang::Lang),
