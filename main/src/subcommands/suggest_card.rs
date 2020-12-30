@@ -366,6 +366,12 @@ impl SEquivalenceLists {
         let card_prev = self.mapcardcard_prev[card];
         if_then_some!(card_prev!=card, card_prev)
     }
+    fn card_and_nexts<'slf>(&'slf self, card: SCard) -> impl Iterator<Item=SCard> + 'slf {
+        std::iter::successors(Some(card), move |&card| self.next(card))
+    }
+    fn card_and_prevs<'slf>(&'slf self, card: SCard) -> impl Iterator<Item=SCard> + 'slf {
+        std::iter::successors(Some(card), move |&card| self.prev(card))
+    }
     fn nexts<'slf>(&'slf self, card: SCard) -> impl Iterator<Item=SCard> + 'slf {
         std::iter::successors(self.next(card), move |&card| self.next(card))
     }
@@ -487,22 +493,35 @@ fn find_relevant_stichs<
         let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
         macro_rules! dbg(($e:expr) => {$e});
         let mut veccard_allowed = dbg!(rules.all_allowed_cards(stichseq, &ahand[epi_current]));
-        while let Some(card_allowed) = veccard_allowed.pop() {
-            use crate::rules::card_points::*;
+        struct SEquivalent {
+            card_first: SCard,
+            ocard_last: Option<SCard>,
+            veccard_join: Vec<SCard>, // TODO can sensibly hold at most EPlayerIndex::SIZE-2 items
+        }
+        let mut vecequiv = Vec::new();
+        while let Some(&card_allowed) = veccard_allowed.first() {
+            let card_begin = unwrap!(cluster.card_and_prevs(card_allowed).last());
+            let mut itcard = cluster.card_and_nexts(card_begin);
+            if let Some(card_first) = itcard.by_ref().find(|card| veccard_allowed.find_remove(card)) {
+                let ocard_last = itcard.by_ref().find(|card| !veccard_allowed.find_remove(card));
+                let veccard_join = itcard.by_ref().take_while(|card| !veccard_allowed.contains(card)).collect();
+                vecequiv.push(SEquivalent{
+                    card_first,
+                    ocard_last,
+                    veccard_join,
+                });
+            }
+        }
+        let mut itequiv = vecequiv.into_iter();
+        while let Some(equiv) = itequiv.next() {
+            let mut card_first = equiv.card_first;
+            let ocard_last = equiv.ocard_last;
             let n_stich_before = vecstich_result.len();
-            let mut ab_points_seen = [false; 12];
-            let mut card_first = cluster
-                .prevs(card_allowed)
-                .take_while(|card| veccard_allowed.find_remove(card))
-                .last()
-                .unwrap_or(card_allowed);
-            let ocard_last = cluster
-                .nexts(card_allowed)
-                .skip_while(|card| veccard_allowed.find_remove(card))
-                .next();
             //println!("{} {:?}", card_first, ocard_last);
             let (mut card_lo, mut card_hi) = (card_first, card_first);
+            let mut ab_points_seen = [false; 12];
             loop {
+                use crate::rules::card_points::*;
                 if assign_other(&mut ab_points_seen[points_card(card_first).as_num::<usize>()], true) {
                     assign_min_by_key(&mut card_lo, card_first, |&card| points_card(card));
                     assign_max_by_key(&mut card_hi, card_first, |&card| points_card(card));
