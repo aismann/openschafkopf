@@ -513,36 +513,55 @@ fn find_relevant_stichs<
             }
         }
         let mut itequiv = vecequiv.into_iter();
-        while let Some(equiv) = itequiv.next() {
-            let mut card_first = equiv.card_first;
-            let ocard_last = equiv.ocard_last;
+        while let Some(mut equiv) = itequiv.next() {
             let n_stich_before = vecstich_result.len();
-            //println!("{} {:?}", card_first, ocard_last);
-            let (mut card_lo, mut card_hi) = (card_first, card_first);
-            let mut ab_points_seen = [false; 12];
+            let (mut card_lo, mut card_hi) = (equiv.card_first, equiv.card_first);
             loop {
-                use crate::rules::card_points::*;
-                if assign_other(&mut ab_points_seen[points_card(card_first).as_num::<usize>()], true) {
-                    assign_min_by_key(&mut card_lo, card_first, |&card| points_card(card));
-                    assign_max_by_key(&mut card_hi, card_first, |&card| points_card(card));
-                    stichseq.zugeben_and_restore_custom_winner_index(card_first, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
-                        find_relevant_stichs::<StichSize::Next, _>(
-                            stichseq,
-                            ahand,
-                            rules,
-                            winidxcache,
-                            cluster,
-                            epi_self,
-                            fn_is_same_party,
-                            vecstich_result,
-                        );
-                    });
+                let mut card_first = equiv.card_first;
+                let ocard_last = equiv.ocard_last;
+                //println!("{} {:?}", card_first, ocard_last);
+                let mut ab_points_seen = [false; 12];
+                loop {
+                    use crate::rules::card_points::*;
+                    if assign_other(&mut ab_points_seen[points_card(card_first).as_num::<usize>()], true) {
+                        assign_min_by_key(&mut card_lo, card_first, |&card| points_card(card));
+                        assign_max_by_key(&mut card_hi, card_first, |&card| points_card(card));
+                        stichseq.zugeben_and_restore_custom_winner_index(card_first, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
+                            find_relevant_stichs::<StichSize::Next, _>(
+                                stichseq,
+                                ahand,
+                                rules,
+                                winidxcache,
+                                cluster,
+                                epi_self,
+                                fn_is_same_party,
+                                vecstich_result,
+                            );
+                        });
+                    }
+                    let ocard_next = cluster.next(card_first);
+                    if ocard_next==ocard_last {
+                        break;
+                    } else if let Some(card_next) = verify!(ocard_next) {
+                        card_first = card_next;
+                    }
                 }
-                let ocard_next = cluster.next(card_first);
-                if ocard_next==ocard_last {
+                if equiv.veccard_join.iter().all(|card| {
+                    vecstich_result[n_stich_before..].iter().all(|stich| {
+                        if let Some(tplepicard) = stich.iter().find(|tplepicard| card==tplepicard.1) {
+                            tplepicard.0 != debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich))
+                        } else {
+                            false
+                        }
+                    })
+                }) {
+                    if let Some(equiv_next) = itequiv.next() {
+                        equiv = equiv_next;
+                    } else {
+                        break;
+                    }
+                } else {
                     break;
-                } else if let Some(card_next) = verify!(ocard_next) {
-                    card_first = card_next;
                 }
             }
             if vecstich_result[n_stich_before..]
