@@ -504,12 +504,8 @@ fn find_relevant_stichs<
             let (mut card_lo, mut card_hi) = (card_first, card_first);
             loop {
                 if assign_other(&mut ab_points_seen[points_card(card_first).as_num::<usize>()], true) {
-                    if points_card(card_lo) > points_card(card_first) {
-                        card_lo = card_first;
-                    }
-                    if points_card(card_hi) < points_card(card_first) {
-                        card_hi = card_first;
-                    }
+                    assign_min_by_key(&mut card_lo, card_first, |&card| points_card(card));
+                    assign_max_by_key(&mut card_hi, card_first, |&card| points_card(card));
                     stichseq.zugeben_and_restore_custom_winner_index(card_first, |stich| { debug_verify_eq!(winidxcache.get(stich), rules.winner_index(stich)) }, |stichseq| {
                         find_relevant_stichs::<StichSize::Next, _>(
                             stichseq,

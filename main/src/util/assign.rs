@@ -19,6 +19,14 @@ pub fn assign_max<T: Ord>(dst: &mut T, src: T) -> bool {
     assign_better(dst, src, |lhs, rhs| lhs>rhs)
 }
 
+pub fn assign_min_by_key<T, K: Ord>(dst: &mut T, src: T, fn_key: impl Fn(&T)->K) -> bool {
+    assign_better(dst, src, |lhs, rhs| fn_key(lhs)<fn_key(rhs))
+}
+
+pub fn assign_max_by_key<T, K: Ord>(dst: &mut T, src: T, fn_key: impl Fn(&T)->K) -> bool {
+    assign_better(dst, src, |lhs, rhs| fn_key(lhs)>fn_key(rhs))
+}
+
 pub fn assign_by_key_ordering<T, K: Ord, FnKey>(
     dst: &mut T,
     src: T,
