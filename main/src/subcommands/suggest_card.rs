@@ -348,6 +348,8 @@ impl SEquivalenceLists {
                 }
                 assert!(slf.next(card).is_none());
             }
+            assert!(slccard.iter().copied().skip(1).eq(slf.nexts(slccard[0])));
+            assert!(slccard.iter().copied().rev().skip(1).eq(slf.prevs(*unwrap!(slccard.last()))));
         }
         for stich in stichseq.completed_stichs().iter() {
             for (_epi, card_played) in stich.iter() {
@@ -363,6 +365,12 @@ impl SEquivalenceLists {
     fn prev(&self, card: SCard) -> Option<SCard> {
         let card_prev = self.mapcardcard_prev[card];
         if_then_some!(card_prev!=card, card_prev)
+    }
+    fn nexts<'slf>(&'slf self, card: SCard) -> impl Iterator<Item=SCard> + 'slf {
+        std::iter::successors(self.next(card), move |&card| self.next(card))
+    }
+    fn prevs<'slf>(&'slf self, card: SCard) -> impl Iterator<Item=SCard> + 'slf {
+        std::iter::successors(self.prev(card), move |&card| self.prev(card))
     }
     fn remove(&mut self, card: SCard) {
         let ocard_next = self.next(card);
@@ -483,22 +491,15 @@ fn find_relevant_stichs<
             use crate::rules::card_points::*;
             let n_stich_before = vecstich_result.len();
             let mut ab_points_seen = [false; 12];
-            let mut card_first = card_allowed;
-            let mut ocard_allowed_prev = cluster.prev(card_allowed);
-            while let Some(card_allowed_prev) = ocard_allowed_prev.take() {
-                if veccard_allowed.find_remove(&card_allowed_prev) {
-                    card_first = card_allowed_prev;
-                    ocard_allowed_prev = cluster.prev(card_allowed_prev);
-                }
-            }
-            let mut ocard_allowed_next = cluster.next(card_allowed);
-            let mut ocard_last = ocard_allowed_next.clone();
-            while let Some(card_allowed_next) = ocard_allowed_next.take() {
-                if veccard_allowed.find_remove(&card_allowed_next) {
-                    ocard_allowed_next = cluster.next(card_allowed_next);
-                    ocard_last = ocard_allowed_next.clone();
-                }
-            }
+            let mut card_first = cluster
+                .prevs(card_allowed)
+                .take_while(|card| veccard_allowed.find_remove(card))
+                .last()
+                .unwrap_or(card_allowed);
+            let ocard_last = cluster
+                .nexts(card_allowed)
+                .skip_while(|card| veccard_allowed.find_remove(card))
+                .next();
             //println!("{} {:?}", card_first, ocard_last);
             let (mut card_lo, mut card_hi) = (card_first, card_first);
             loop {
