@@ -684,6 +684,19 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 );
                 if !map[stichseq.completed_stichs().len()].insert(beginning) {
                     return;
+                /*} else if { // This reduces the number of explored states only marginally
+                    // check if only one player has all remaining trumpf. In this case, the result is clear. It can be obtained by exploring a single run.
+                    let an_trumpf = ahand.map(|hand| {
+                        hand.cards().iter().filter(|card| rules.trumpforfarbe(**card).is_trumpf()).count()
+                    });
+                    an_trumpf.iter()
+                        .filter(|&n_trumpf| n_trumpf>&0)
+                        .exactly_one()
+                        .ok()
+                        .map_or(false, |&n_trumpf|
+                            n_trumpf == ahand[EPlayerIndex::EPI0].cards().len()
+                        )
+                } {*/
                 } else if ahand[EPlayerIndex::EPI0].cards().len()>0 && stichseq.completed_stichs().len() < n_stichs_bound {
                     let mut vecstich = Vec::with_capacity(4096);
                     use crate::primitives::card::card_values::*;
@@ -787,7 +800,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 println!("{}", asetbeginning.iter().map(|setbeginning| setbeginning.len()).join(", "));
             }
             doit(
-                &mut SStichSequence::new(EKurzLang::Lang),
+                &mut stichseq.clone(),
                 &mut ahand.clone(),
                 rules,
                 &SWinnerIndexCache::new(&ahand, rules),
