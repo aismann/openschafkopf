@@ -533,7 +533,7 @@ fn find_relevant_stichs<
                     veccard_join,
                 });
             }
-            assert!(vecequiv.iter().all(|equiv| {
+            debug_assert!(vecequiv.iter().all(|equiv| {
                 cluster.card_and_nexts(equiv.card_first).take_while(|card| Some(*card)!=equiv.ocard_last).all(|card| {
                     veccard_allowed_2.contains(&card)
                 })
