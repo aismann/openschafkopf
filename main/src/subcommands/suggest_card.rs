@@ -662,6 +662,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 stichseq: &mut SStichSequence,
                 ahand: &mut EnumMap<EPlayerIndex, SHand>,
                 setcard_played: SSetCard,
+                setsetcardepi_unplayed: &mut HashSet<(SSetCard, EPlayerIndex)>,
                 rulestatecache: &mut SRuleStateCache,
                 n_stichs_bound: usize,
                 rules: &dyn TRules,
@@ -684,6 +685,17 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 );
                 if !map[stichseq.completed_stichs().len()].insert(beginning) {
                     return;
+                } else if !setsetcardepi_unplayed.insert({
+                    // this prunes the search tree significantly
+                    // TODO does this make setcard_played superfluous?
+                    let mut setcard_unplayed = SSetCard::new();
+                    for hand in ahand.iter() {
+                        for card in hand.cards().iter() {
+                            setcard_unplayed.add(*card);
+                        }
+                    }
+                    (setcard_unplayed, stichseq.current_stich().first_playerindex())
+                }) {
                 /*} else if { // This reduces the number of explored states only marginally
                     // check if only one player has all remaining trumpf. In this case, the result is clear. It can be obtained by exploring a single run.
                     let an_trumpf = ahand.map(|hand| {
@@ -744,6 +756,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                                             stichseq,
                                             ahand,
                                             setcard_played_new,
+                                            setsetcardepi_unplayed,
                                             rulestatecache,
                                             n_stichs_bound,
                                             rules,
@@ -784,6 +797,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         }
                         setcard
                     },
+                    /*setsetcardepi_unplayed*/&mut Default::default(),
                     &mut SRuleStateCache::new(
                         stichseq,
                         ahand,
