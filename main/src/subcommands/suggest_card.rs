@@ -287,7 +287,7 @@ impl SSetCard {
     fn new() -> Self {
         Self {n:0}
     }
-    fn play(&mut self, card: SCard) {
+    fn add(&mut self, card: SCard) {
         self.n |= 1<<card.to_usize();
     }
 }
@@ -731,10 +731,10 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         }}};
                         // TODO introduce push_pop_stich
                         let mut setcard_played_new = setcard_played;
-                        setcard_played_new.play(slccard[0]);
-                        setcard_played_new.play(slccard[1]);
-                        setcard_played_new.play(slccard[2]);
-                        setcard_played_new.play(slccard[3]);
+                        setcard_played_new.add(slccard[0]);
+                        setcard_played_new.add(slccard[1]);
+                        setcard_played_new.add(slccard[2]);
+                        setcard_played_new.add(slccard[3]);
                         stichseq.zugeben_and_restore_custom_winner_index(slccard[0], winner_index!(), |stichseq| {
                             stichseq.zugeben_and_restore_custom_winner_index(slccard[1], winner_index!(), |stichseq| {
                                 stichseq.zugeben_and_restore_custom_winner_index(slccard[2], winner_index!(), |stichseq| {
@@ -779,7 +779,7 @@ pub fn suggest_card(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         let mut setcard = SSetCard::new();
                         for stich in stichseq.visible_stichs() {
                             for card in stich.elements_in_order() {
-                                setcard.play(*card);
+                                setcard.add(*card);
                             }
                         }
                         setcard
