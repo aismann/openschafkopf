@@ -497,7 +497,8 @@ fn find_relevant_stichs<
         struct SEquivalent {
             card_first: SCard,
             ocard_last: Option<SCard>,
-            veccard_join: Vec<SCard>, // TODO can sensibly hold at most EPlayerIndex::SIZE-2 items
+            // TODO static_assert(EPlayerIndex::SIZE-2==2)
+            veccard_join: ArrayVec<[SCard; EPlayerIndex::SIZE-2]>, // TODO can sensibly hold at most EPlayerIndex::SIZE-2 items
         }
         let mut vecvecequiv = Vec::new();
         let veccard_allowed_2 = veccard_allowed.clone();
@@ -509,13 +510,19 @@ fn find_relevant_stichs<
             while let Some(card_first) = ocard_first.take() {
                 let ocard_last = itcard.by_ref().find(|card| !veccard_allowed.find_remove(card));
                 let mut b_found = true;
-                let veccard_join = if let Some(ref card_last)=ocard_last {
-                    Some(*card_last).into_iter().chain(itcard.by_ref().take_while(|card| {
+                // TODO static_assert(EPlayerIndex::SIZE-2==2)
+                let mut veccard_join : ArrayVec<[SCard; 2]> = Default::default();
+                if let Some(ref card_last)=ocard_last {
+                    debug_assert!(!veccard_allowed.contains(&card_last));
+                    veccard_join.push(*card_last);
+                    let mut itcard_join = itcard.by_ref().take_while(|card| {
                         ocard_first = Some(*card);
                         assign_other(&mut b_found, !veccard_allowed.find_remove(card))
-                    })).collect()
-                } else {
-                    Vec::new()
+                    });
+                    if let Some(card_join_next) = itcard_join.next() {
+                        veccard_join.push(card_join_next);
+                    }
+                    for _ in itcard_join {} // exhaust iterator
                 };
                 if b_found {
                     ocard_first = None;
