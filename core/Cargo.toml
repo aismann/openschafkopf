@@ -20,7 +20,7 @@ arrayvec = "0"
 rayon = "1"
 toml = "0"
 as_num = "0"
-failure = "0"
+failure = { version = "0", default-features = false, features = ["std"] }
 derive-new = "0"
 chrono = "0"
 openschafkopf_util = {path = "../util"}

@@ -10,5 +10,5 @@ byteorder = "1"
 as_num = "0"
 openschafkopf_util = {path = "../util"}
 openschafkopf_logging = {path = "../logging"}
-failure = "0"
+failure = { version = "0", default-features = false, features = ["std"] }
 itertools = "0"

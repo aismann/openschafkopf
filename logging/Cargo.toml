@@ -11,6 +11,6 @@ fern = "0"
 dirs = "2"
 itertools = "0"
 openschafkopf_util = {path = "../util"}
-failure = "0"
+failure = { version = "0", default-features = false, features = ["std"] }
 log = "0"
 chrono = "0"
