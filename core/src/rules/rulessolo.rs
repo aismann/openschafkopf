@@ -389,7 +389,7 @@ pub fn sololike(
 
 #[test]
 fn test_trumpfdecider() {
-    use crate::card::card_values::*;
+    use crate::primitives::card::card_values::*;
     assert_eq!(
         <SCoreSolo<SStaticFarbeGras> as TTrumpfDecider>
             ::trumpfs_in_descending_order().collect::<Vec<_>>(),

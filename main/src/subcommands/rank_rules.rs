@@ -1,5 +1,5 @@
-use crate::primitives::*;
-use crate::rules::ruleset::*;
+use openschafkopf_core::primitives::*;
+use openschafkopf_core::rules::ruleset::*;
 use crate::util::*;
 
 pub fn subcommand(str_subcommand: &str) -> clap::App {

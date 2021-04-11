@@ -7,16 +7,9 @@
 
 #[macro_use]
 mod util;
-mod ai;
-mod game;
-mod game_analysis;
-mod player;
-mod primitives;
-mod rules;
-mod skui;
 mod subcommands;
 
-use crate::primitives::*;
+use openschafkopf_core::*;
 use crate::util::*;
 
 fn main() -> Result<(), Error> {

@@ -4,10 +4,11 @@ use std::{
     net::SocketAddr,
     sync::{Arc, Mutex},
 };
-use crate::util::*;
-use crate::game::*;
-use crate::rules::*;
-use crate::rules::ruleset::{SRuleGroup, SRuleSet, VStockOrT, allowed_rules};
+use openschafkopf_core::util::*;
+use openschafkopf_core::game::*;
+use openschafkopf_core::rules::*;
+use openschafkopf_core::rules::ruleset::{SRuleGroup, SRuleSet, VStockOrT, allowed_rules};
+use openschafkopf_core::primitives::*;
 
 use futures::prelude::*;
 use futures::{
@@ -22,7 +23,6 @@ use async_std::{
     task,
 };
 use async_tungstenite::tungstenite::protocol::Message;
-use crate::primitives::*;
 use rand::prelude::*;
 use itertools::Itertools;
 

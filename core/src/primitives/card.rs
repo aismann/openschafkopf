@@ -191,7 +191,7 @@ impl<V, W> TInternalEnumMapType<V, W> for SCard {
 
 #[cfg(test)]
 pub mod card_values {
-    use crate::card::*;
+    use crate::primitives::card::*;
     macro_rules! impl_card_val_internal {(($($card:ident,)*), ($($eschlag:ident,)*), $efarbe:ident) => {
         $(pub const $card : SCard = card_new_const(EFarbe::$efarbe, ESchlag::$eschlag);)*
     }}

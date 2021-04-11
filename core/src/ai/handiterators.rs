@@ -127,7 +127,7 @@ pub fn forever_rand_hands<'lifetime>(stichseq: &'lifetime SStichSequence, hand_f
 
 #[test]
 fn test_all_possible_hands() {
-    use crate::card::card_values::*;
+    use crate::primitives::card::card_values::*;
     let epi_irrelevant = EPlayerIndex::EPI0;
     let mut stichseq = SStichSequence::new(EKurzLang::Lang);
     for acard_stich in [[G7, G8, GA, G9], [S8, HO, S7, S9], [H7, HK, HU, SU], [EO, GO, HZ, H8]] {

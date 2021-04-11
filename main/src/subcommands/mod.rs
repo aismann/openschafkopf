@@ -8,9 +8,9 @@ mod handconstraint;
 mod common_given_game;
 
 use crate::util::*;
-use crate::rules::ruleset::SRuleSet;
-use crate::ai::SAi;
-use crate::primitives::hand::SHand;
+use openschafkopf_core::rules::ruleset::SRuleSet;
+use openschafkopf_core::ai::SAi;
+use openschafkopf_core::primitives::hand::SHand;
 
 fn clap_arg(str_long: &'static str, str_default: &'static str) -> clap::Arg<'static, 'static> {
     clap::Arg::with_name(str_long)
@@ -39,5 +39,5 @@ pub fn ai(subcommand_matches: &clap::ArgMatches) -> SAi {
 }
 
 pub fn str_to_hand(str_hand: &str) -> Result<SHand, Error> {
-    Ok(SHand::new_from_vec(crate::primitives::cardvector::parse_cards(str_hand).ok_or_else(||format_err!("Could not parse hand."))?))
+    Ok(SHand::new_from_vec(openschafkopf_core::primitives::cardvector::parse_cards(str_hand).ok_or_else(||format_err!("Could not parse hand."))?))
 }

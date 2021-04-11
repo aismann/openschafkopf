@@ -1,7 +1,8 @@
-use crate::primitives::*;
-use crate::util::{*, parser::*};
-use crate::rules::*;
-use crate::cardvector::*;
+use openschafkopf_core::primitives::*;
+use openschafkopf_core::util::parser::*;
+use openschafkopf_core::rules::*;
+use openschafkopf_core::primitives::cardvector::*;
+use crate::util::*;
 use itertools::*;
 use combine::{char::*, *};
 

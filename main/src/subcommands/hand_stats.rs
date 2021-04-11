@@ -1,7 +1,7 @@
-use crate::ai::*;
-use crate::primitives::*;
-use crate::rules::*;
-use crate::util::*;
+use openschafkopf_core::ai::*;
+use openschafkopf_core::primitives::*;
+use openschafkopf_core::rules::*;
+use openschafkopf_core::util::*;
 
 use super::common_given_game::*;
 

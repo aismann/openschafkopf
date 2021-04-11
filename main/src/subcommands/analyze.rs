@@ -1,9 +1,10 @@
-use crate::game_analysis::*;
-use crate::game::*;
-use crate::rules::ruleset::SStossParams;
-use crate::primitives::*;
-use crate::primitives::cardvector::*;
-use crate::util::{*, parser::*};
+use openschafkopf_core::game_analysis::*;
+use openschafkopf_core::game::*;
+use openschafkopf_core::rules::ruleset::SStossParams;
+use openschafkopf_core::primitives::*;
+use openschafkopf_core::primitives::cardvector::*;
+use openschafkopf_core::util::parser::*;
+use crate::util::*;
 use std::io::Read;
 use itertools::Itertools;
 
@@ -92,7 +93,7 @@ pub fn analyze_sauspiel_html(str_html: &str) -> Result<SGame, failure::Error> {
         .exactly_one()
         .map_err(|it| format_err!("h1 is not single: {} elements", it.count())) // TODO could it implement Debug?
         .and_then(|node_rules| {
-            crate::rules::parser::parse_rule_description(
+            openschafkopf_core::rules::parser::parse_rule_description(
                 &node_rules.text(),
                 (n_tarif_extra, n_tarif_ruf, n_tarif_solo),
                 /*fn_player_to_epi*/username_to_epi,

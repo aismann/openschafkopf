@@ -1,21 +1,19 @@
 [package]
-name = "openschafkopf_core"
+name = "openschafkopf"
 version = "0.1.0"
 authors = ["openschafkopf"]
 edition = "2018"
 
-[build-dependencies]
-openschafkopf_util = {path = "../util"}
-image = "0"
-as_num = "0"
-
 [dependencies]
+atty = "0"
+termcolor = "1"
 combine = "3"
 rand = "0"
-ncurses = "5" # TODO should not be in core
+ncurses = "5"
 itertools = "0"
 plain_enum = "0"
 permutohedron = "0"
+clap = "2"
 arrayvec = "0"
 rayon = "1"
 toml = "0"
@@ -23,7 +21,15 @@ as_num = "0"
 failure = "0"
 derive-new = "0"
 chrono = "0"
+# TODO can we have a cfg feature "sauspiel" that does not use the corresponding crates?
+select = "0"
+glob = "0"
+openschafkopf_core = {path = "../core"}
 openschafkopf_util = {path = "../util"}
 openschafkopf_logging = {path = "../logging"}
+futures = "0.3"
+async-std = "1"
+async-tungstenite = "0"
 serde = {version = "1", features = ["derive"]}
+serde_json = "1"
 serde_repr = "0"

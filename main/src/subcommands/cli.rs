@@ -1,7 +1,7 @@
-use crate::game::run::run_simple_game_loop;
-use crate::player::{*, playercomputer::*, playerhuman::*};
-use crate::primitives::*;
-use crate::skui;
+use openschafkopf_core::game::run::run_simple_game_loop;
+use openschafkopf_core::player::{*, playercomputer::*, playerhuman::*};
+use openschafkopf_core::primitives::*;
+use openschafkopf_core::skui;
 use crate::util::*;
 
 pub fn subcommand(str_subcommand: &str) -> clap::App {

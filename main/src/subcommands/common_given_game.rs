@@ -1,8 +1,8 @@
-use crate::ai::{*, handiterators::*};
-use crate::game::SStichSequence;
-use crate::primitives::*;
+use openschafkopf_core::ai::{*, handiterators::*};
+use openschafkopf_core::game::SStichSequence;
+use openschafkopf_core::primitives::*;
 use crate::util::*;
-use crate::rules::*;
+use openschafkopf_core::rules::*;
 
 pub use super::handconstraint::*;
 

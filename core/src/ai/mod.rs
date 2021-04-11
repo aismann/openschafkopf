@@ -214,7 +214,7 @@ pub fn unplayed_cards<'lifetime>(stichseq: &'lifetime SStichSequence, hand_fixed
 
 #[test]
 fn test_unplayed_cards() {
-    use crate::card::card_values::*;
+    use crate::primitives::card::card_values::*;
     let mut stichseq = SStichSequence::new(EKurzLang::Lang);
     for acard_stich in [[G7, G8, GA, G9], [S8, HO, S7, S9], [H7, HK, HU, SU], [EO, GO, HZ, H8], [E9, EK, E8, EA], [SA, EU, SO, HA]] {
         for card in acard_stich {
@@ -408,7 +408,7 @@ pub fn branching_factor(fn_stichseq_to_intvl: impl Fn(&SStichSequence)->(usize, 
 fn test_is_compatible_with_game_so_far() {
     use crate::rules::rulesrufspiel::*;
     use crate::rules::payoutdecider::*;
-    use crate::card::card_values::*;
+    use crate::primitives::card::card_values::*;
     use crate::game;
     enum VTestAction {
         PlayStich([SCard; 4]),
@@ -497,7 +497,7 @@ fn test_is_compatible_with_game_so_far() {
 
 #[test]
 fn test_very_expensive_exploration() { // this kind of abuses the test mechanism to benchmark the performance
-    use crate::card::card_values::*;
+    use crate::primitives::card::card_values::*;
     use crate::game::*;
     use crate::rules::{ruleset::*, rulessolo::*, payoutdecider::*};
     use crate::game_analysis::TPayoutDeciderSoloLikeDefault;

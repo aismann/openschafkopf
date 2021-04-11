@@ -1,7 +1,7 @@
-use crate::ai::{*, suspicion::*};
-use crate::primitives::*;
+use openschafkopf_core::ai::{*, suspicion::*};
+use openschafkopf_core::primitives::*;
+use openschafkopf_core::rules::*;
 use crate::util::*;
-use crate::rules::*;
 use itertools::*;
 
 use super::common_given_game::*;
