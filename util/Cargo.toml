@@ -9,5 +9,4 @@ itertools = "0"
 as_num = "0"
 plain_enum = "0"
 combine = "3"
-derive-new = "0"
 failure = { version = "0", default-features = false, features = ["std"] }
