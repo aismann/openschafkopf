@@ -7,6 +7,7 @@ pub trait TStaticValue<
     const VALUE : V;
 }
 
+#[macro_export]
 macro_rules! define_static_value {
     (pub $struct: ident, $type: ty, $value: expr) => {
         #[derive(Copy, Clone, Debug)]
