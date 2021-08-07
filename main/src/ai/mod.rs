@@ -152,6 +152,7 @@ impl SAi {
                         /*tpln_stoss_doubling*/stoss_and_doublings(&game.vecstoss, &game.doublings),
                         game.n_stock,
                     ),
+                    || SSnapshotCacheNone,
                     fn_visualizer,
                 )
             }}}
@@ -318,12 +319,14 @@ impl std::cmp::Ord for SPayoutStatsPerStrategy {
 
 pub fn determine_best_card<
     ForEachSnapshot: TForEachSnapshot<Output=SMinMax> + Sync,
+    SnapshotCache: TSnapshotCache<ForEachSnapshot::Output>,
     SnapshotVisualizer: TSnapshotVisualizer<ForEachSnapshot::Output>,
 >(
     determinebestcard: &SDetermineBestCard,
     itahand: impl Iterator<Item=EnumMap<EPlayerIndex, SHand>> + Send,
     func_filter_allowed_cards: &(impl Fn(&SStichSequence, &mut SHandVector) + std::marker::Sync),
     foreachsnapshot: &ForEachSnapshot,
+    fn_snapshotcache: impl Fn() -> SnapshotCache + std::marker::Sync,
     fn_visualizer: impl Fn(&EnumMap<EPlayerIndex, SHand>, SCard) -> SnapshotVisualizer + std::marker::Sync,
 ) -> SDetermineBestCardResult<SPayoutStatsPerStrategy>
     where
@@ -353,7 +356,7 @@ pub fn determine_best_card<
                 &mut stichseq,
                 func_filter_allowed_cards,
                 foreachsnapshot,
-                &mut SSnapshotCacheNone,
+                &mut fn_snapshotcache(),
                 &mut visualizer,
             );
             let ooutput = &mut unwrap!(mapcardooutput.lock())[card];
@@ -532,6 +535,7 @@ fn test_very_expensive_exploration() { // this kind of abuses the test mechanism
             std::iter::once(ahand),
             /*func_filter_allowed_cards*/&branching_factor(|_stichseq| (1, 2)),
             &SMinReachablePayout::new_from_game(&game),
+            /*fn_snapshotcache*/|| SSnapshotCacheNone,
             /*fn_visualizer*/|_,_| SNoVisualization,
         );
         for card in [H7, H8, H9] {

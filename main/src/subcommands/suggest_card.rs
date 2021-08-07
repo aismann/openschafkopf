@@ -54,6 +54,7 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                             /*tpln_stoss_doubling*/(0, 0), // TODO? make customizable
                             /*n_stock*/0, // TODO? make customizable
                         ),
+                        /*fn_snapshotcache*/|| SSnapshotCacheNone,
                         $fn_visualizer,
                     )
                 }}}
