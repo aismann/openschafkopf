@@ -152,6 +152,14 @@ pub struct SPointStichCount {
     pub n_stich: usize,
     pub n_point: isize,
 }
+impl std::ops::Add for SPointStichCount {
+    type Output = Self;
+    fn add(mut self, rhs: SPointStichCount) -> Self::Output {
+        self.n_stich += rhs.n_stich;
+        self.n_point += rhs.n_point;
+        self
+    }
+}
 #[derive(Eq, PartialEq, Debug)]
 pub struct SRuleStateCacheChanging {
     pub mapepipointstichcount: EnumMap<EPlayerIndex, SPointStichCount>,
