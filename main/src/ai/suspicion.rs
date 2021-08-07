@@ -269,7 +269,7 @@ fn explore_snapshots_internal<ForEachSnapshot>(
                                 stichseq,
                                 func_filter_allowed_cards,
                                 foreachsnapshot,
-                                &mut SSnapshotCacheNone,
+                                snapshotcache,
                                 snapshotvisualizer,
                             )}}
                             if stichseq.current_stich().is_empty() {
