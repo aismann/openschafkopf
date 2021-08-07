@@ -117,6 +117,7 @@ impl SAi {
                         tpln_stoss_doubling,
                         n_stock,
                     ),
+                    &mut SSnapshotCacheNone,
                     &mut SNoVisualization{},
                 ).t_min[epi_rank]
             })
@@ -352,6 +353,7 @@ pub fn determine_best_card<
                 &mut stichseq,
                 func_filter_allowed_cards,
                 foreachsnapshot,
+                &mut SSnapshotCacheNone,
                 &mut visualizer,
             );
             let ooutput = &mut unwrap!(mapcardooutput.lock())[card];
