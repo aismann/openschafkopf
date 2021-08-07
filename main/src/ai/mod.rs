@@ -117,6 +117,7 @@ impl SAi {
                         tpln_stoss_doubling,
                         n_stock,
                     ),
+                    &mut SSnapshotCacheNone,
                     |_,_| -> VSnapshotCache<SSnapshotCacheNone> {
                         VSnapshotCache::Remove
                     },
@@ -340,13 +341,32 @@ pub fn determine_best_card<
         // aggregate n_payout per card in some way
         SCard::map_from_fn(|_card| None),
     ));
+    //for ahand in itahand {
+    //    let snapshotcache = asdf;
+    //    for card in allowed_cards(ahand) {
+    //        doit();
+    //    }
+    //}
     itahand
-        .par_bridge() // TODO can we derive a true parallel iterator?
-        .flat_map(|ahand|
-            determinebestcard.veccard_allowed.par_iter()
-                .map(move |card| (ahand.clone(), *card))
+        //.par_bridge() // TODO can we derive a true parallel iterator?
+        .map(|ahand| {
+            let stichseq = determinebestcard.stichseq.clone();
+            let snapshotcache = fn_snapshotcache(
+                &stichseq,
+                &SRuleStateCache::new(
+                    &stichseq,
+                    &ahand,
+                    |stich| determinebestcard.rules.winner_index(stich),
+                ).fixed,
+            );
+            (ahand, Arc::new(Mutex::new(snapshotcache)))
+        })
+        .flat_map(|(ahand, snapshotcache)|
+            determinebestcard.veccard_allowed./*par_*/iter()
+                .map(move |card| (ahand.clone(), snapshotcache.clone(), *card))
         )
-        .for_each(|(mut ahand, card)| {
+        .for_each(|(mut ahand, snapshotcache, card)| {
+            let ref mut snapshotcache = *snapshotcache.lock().unwrap();
             let mut visualizer = fn_visualizer(&ahand, card); // do before ahand is modified
             debug_assert!(ahand[determinebestcard.epi_fixed].cards().contains(&card));
             let mapcardooutput = Arc::clone(&mapcardooutput);
@@ -354,15 +374,38 @@ pub fn determine_best_card<
             assert!(ahand_vecstich_card_count_is_compatible(&stichseq, &ahand));
             ahand[determinebestcard.epi_fixed].play_card(card);
             stichseq.zugeben(card, determinebestcard.rules);
-            let output = explore_snapshots(
-                &mut ahand,
-                determinebestcard.rules,
-                &mut stichseq,
-                func_filter_allowed_cards,
-                foreachsnapshot,
-                fn_snapshotcache.clone(),
-                &mut visualizer,
-            );
+            let output = match snapshotcache {
+                VSnapshotCache::Remove|VSnapshotCache::Keep => explore_snapshots(
+                    &mut ahand,
+                    determinebestcard.rules,
+                    &mut stichseq,
+                    func_filter_allowed_cards,
+                    foreachsnapshot,
+                    &mut SSnapshotCacheNone,
+                    fn_snapshotcache.clone(),
+                    &mut visualizer,
+                ),
+                VSnapshotCache::Renew(ref mut snapshotcache) => explore_snapshots(
+                    &mut ahand,
+                    determinebestcard.rules,
+                    &mut stichseq,
+                    func_filter_allowed_cards,
+                    foreachsnapshot,
+                    snapshotcache,
+                    fn_snapshotcache.clone(),
+                    &mut visualizer,
+                ),
+            };
+            //let output = explore_snapshots(
+            //    &mut ahand,
+            //    determinebestcard.rules,
+            //    &mut stichseq,
+            //    func_filter_allowed_cards,
+            //    foreachsnapshot,
+            //    &mut snapshotcache,
+            //    fn_snapshotcache.clone(),
+            //    &mut visualizer,
+            //);
             let ooutput = &mut unwrap!(mapcardooutput.lock())[card];
             let payoutstats = SPayoutStatsPerStrategy{
                 t_min: SPayoutStats::new_1(output.t_min[determinebestcard.epi_fixed]),

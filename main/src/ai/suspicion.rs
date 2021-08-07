@@ -184,6 +184,7 @@ pub fn explore_snapshots<ForEachSnapshot, SnapshotCache>(
     stichseq: &mut SStichSequence,
     func_filter_allowed_cards: &impl Fn(&SStichSequence, &mut SHandVector),
     foreachsnapshot: &ForEachSnapshot,
+    snapshotcache: &mut impl TSnapshotCache<ForEachSnapshot::Output>,
     fn_snapshotcache: impl Fn(&SStichSequence, &SRuleStateCacheFixed) -> VSnapshotCache<SnapshotCache> + std::marker::Sync + Clone,
     snapshotvisualizer: &mut impl TSnapshotVisualizer<ForEachSnapshot::Output>,
 ) -> ForEachSnapshot::Output 
@@ -196,30 +197,41 @@ pub fn explore_snapshots<ForEachSnapshot, SnapshotCache>(
         ahand,
         |stich| rules.winner_index(stich),
     );
-    match fn_snapshotcache(stichseq, &rulestatecache.fixed) {
-        VSnapshotCache::Remove|VSnapshotCache::Keep => explore_snapshots_internal(
-            ahand,
-            rules,
-            &mut rulestatecache,
-            stichseq,
-            func_filter_allowed_cards,
-            foreachsnapshot,
-            &mut SSnapshotCacheNone,
-            fn_snapshotcache,
-            snapshotvisualizer,
-        ),
-        VSnapshotCache::Renew(mut snapshotcache) => explore_snapshots_internal(
-            ahand,
-            rules,
-            &mut rulestatecache,
-            stichseq,
-            func_filter_allowed_cards,
-            foreachsnapshot,
-            &mut snapshotcache,
-            fn_snapshotcache,
-            snapshotvisualizer,
-        ),
-    }
+    explore_snapshots_internal(
+        ahand,
+        rules,
+        &mut rulestatecache,
+        stichseq,
+        func_filter_allowed_cards,
+        foreachsnapshot,
+        snapshotcache,
+        fn_snapshotcache,
+        snapshotvisualizer,
+    )
+    //match fn_snapshotcache(stichseq, &rulestatecache.fixed) {
+    //    VSnapshotCache::Remove|VSnapshotCache::Keep => explore_snapshots_internal(
+    //        ahand,
+    //        rules,
+    //        &mut rulestatecache,
+    //        stichseq,
+    //        func_filter_allowed_cards,
+    //        foreachsnapshot,
+    //        &mut SSnapshotCacheNone,
+    //        fn_snapshotcache,
+    //        snapshotvisualizer,
+    //    ),
+    //    VSnapshotCache::Renew(mut snapshotcache) => explore_snapshots_internal(
+    //        ahand,
+    //        rules,
+    //        &mut rulestatecache,
+    //        stichseq,
+    //        func_filter_allowed_cards,
+    //        foreachsnapshot,
+    //        &mut snapshotcache,
+    //        fn_snapshotcache,
+    //        snapshotvisualizer,
+    //    ),
+    //}
 }
 
 fn explore_snapshots_internal<ForEachSnapshot, SnapshotCache>(
