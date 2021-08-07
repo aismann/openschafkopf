@@ -117,7 +117,9 @@ impl SAi {
                         tpln_stoss_doubling,
                         n_stock,
                     ),
-                    &mut SSnapshotCacheNone,
+                    |_,_| -> VSnapshotCache<SSnapshotCacheNone> {
+                        VSnapshotCache::Remove
+                    },
                     &mut SNoVisualization{},
                 ).t_min[epi_rank]
             })
@@ -152,7 +154,9 @@ impl SAi {
                         /*tpln_stoss_doubling*/stoss_and_doublings(&game.vecstoss, &game.doublings),
                         game.n_stock,
                     ),
-                    |_| SSnapshotCacheNone,
+                    |_,_| -> VSnapshotCache<SSnapshotCacheNone> {
+                        VSnapshotCache::Remove
+                    },
                     fn_visualizer,
                 )
             }}}
@@ -326,7 +330,7 @@ pub fn determine_best_card<
     itahand: impl Iterator<Item=EnumMap<EPlayerIndex, SHand>> + Send,
     func_filter_allowed_cards: &(impl Fn(&SStichSequence, &mut SHandVector) + std::marker::Sync),
     foreachsnapshot: &ForEachSnapshot,
-    fn_snapshotcache: impl Fn(&SRuleStateCacheFixed) -> SnapshotCache + std::marker::Sync,
+    fn_snapshotcache: impl Fn(&SStichSequence, &SRuleStateCacheFixed) -> VSnapshotCache<SnapshotCache> + std::marker::Sync + Send + Clone,
     fn_visualizer: impl Fn(&EnumMap<EPlayerIndex, SHand>, SCard) -> SnapshotVisualizer + std::marker::Sync,
 ) -> SDetermineBestCardResult<SPayoutStatsPerStrategy>
     where
@@ -350,14 +354,13 @@ pub fn determine_best_card<
             assert!(ahand_vecstich_card_count_is_compatible(&stichseq, &ahand));
             ahand[determinebestcard.epi_fixed].play_card(card);
             stichseq.zugeben(card, determinebestcard.rules);
-            let rulestatecachefixed = SRuleStateCacheFixed::new(&stichseq, &ahand);
             let output = explore_snapshots(
                 &mut ahand,
                 determinebestcard.rules,
                 &mut stichseq,
                 func_filter_allowed_cards,
                 foreachsnapshot,
-                &mut fn_snapshotcache(&rulestatecachefixed),
+                fn_snapshotcache.clone(),
                 &mut visualizer,
             );
             let ooutput = &mut unwrap!(mapcardooutput.lock())[card];
@@ -536,7 +539,7 @@ fn test_very_expensive_exploration() { // this kind of abuses the test mechanism
             std::iter::once(ahand),
             /*func_filter_allowed_cards*/&branching_factor(|_stichseq| (1, 2)),
             &SMinReachablePayout::new_from_game(&game),
-            /*fn_snapshotcache*/|_| SSnapshotCacheNone,
+            /*fn_snapshotcache*/|_,_| VSnapshotCache::Renew(SSnapshotCacheNone),
             /*fn_visualizer*/|_,_| SNoVisualization,
         );
         for card in [H7, H8, H9] {

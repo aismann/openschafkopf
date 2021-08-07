@@ -172,36 +172,57 @@ impl<T> TSnapshotCache<T> for Box<dyn TSnapshotCache<T>> {
         self.as_mut().put(stichseq, rulestatecache, t)
     }
 }
+pub enum VSnapshotCache<T> {
+    Keep,
+    Remove,
+    Renew(T),
+}
 
-pub fn explore_snapshots<ForEachSnapshot>(
+pub fn explore_snapshots<ForEachSnapshot, SnapshotCache>(
     ahand: &mut EnumMap<EPlayerIndex, SHand>,
     rules: &dyn TRules,
     stichseq: &mut SStichSequence,
     func_filter_allowed_cards: &impl Fn(&SStichSequence, &mut SHandVector),
     foreachsnapshot: &ForEachSnapshot,
-    snapshotcache: &mut impl TSnapshotCache<ForEachSnapshot::Output>,
+    fn_snapshotcache: impl Fn(&SStichSequence, &SRuleStateCacheFixed) -> VSnapshotCache<SnapshotCache> + std::marker::Sync + Clone,
     snapshotvisualizer: &mut impl TSnapshotVisualizer<ForEachSnapshot::Output>,
 ) -> ForEachSnapshot::Output 
     where
         ForEachSnapshot: TForEachSnapshot,
+        SnapshotCache: TSnapshotCache<ForEachSnapshot::Output>,
 {
-    explore_snapshots_internal(
-        ahand,
-        rules,
-        &mut SRuleStateCache::new(
-            stichseq,
-            ahand,
-            |stich| rules.winner_index(stich),
-        ),
+    let mut rulestatecache = SRuleStateCache::new(
         stichseq,
-        func_filter_allowed_cards,
-        foreachsnapshot,
-        snapshotcache,
-        snapshotvisualizer,
-    )
+        ahand,
+        |stich| rules.winner_index(stich),
+    );
+    match fn_snapshotcache(stichseq, &rulestatecache.fixed) {
+        VSnapshotCache::Remove|VSnapshotCache::Keep => explore_snapshots_internal(
+            ahand,
+            rules,
+            &mut rulestatecache,
+            stichseq,
+            func_filter_allowed_cards,
+            foreachsnapshot,
+            &mut SSnapshotCacheNone,
+            fn_snapshotcache,
+            snapshotvisualizer,
+        ),
+        VSnapshotCache::Renew(mut snapshotcache) => explore_snapshots_internal(
+            ahand,
+            rules,
+            &mut rulestatecache,
+            stichseq,
+            func_filter_allowed_cards,
+            foreachsnapshot,
+            &mut snapshotcache,
+            fn_snapshotcache,
+            snapshotvisualizer,
+        ),
+    }
 }
 
-fn explore_snapshots_internal<ForEachSnapshot>(
+fn explore_snapshots_internal<ForEachSnapshot, SnapshotCache>(
     ahand: &mut EnumMap<EPlayerIndex, SHand>,
     rules: &dyn TRules,
     rulestatecache: &mut SRuleStateCache,
@@ -209,17 +230,19 @@ fn explore_snapshots_internal<ForEachSnapshot>(
     func_filter_allowed_cards: &impl Fn(&SStichSequence, &mut SHandVector),
     foreachsnapshot: &ForEachSnapshot,
     snapshotcache: &mut impl TSnapshotCache<ForEachSnapshot::Output>,
+    fn_snapshotcache: impl Fn(&SStichSequence, &SRuleStateCacheFixed) -> VSnapshotCache<SnapshotCache> + std::marker::Sync + Clone,
     snapshotvisualizer: &mut impl TSnapshotVisualizer<ForEachSnapshot::Output>,
 ) -> ForEachSnapshot::Output 
     where
         ForEachSnapshot: TForEachSnapshot,
+        SnapshotCache: TSnapshotCache<ForEachSnapshot::Output>,
 {
     snapshotvisualizer.begin_snapshot(stichseq, ahand);
     let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
     let ooutput = if 
         stichseq.current_stich().size()==0
         // && stichseq.visible_stichs().len() > 2
-        && stichseq.visible_stichs().len() < 6
+        // && stichseq.visible_stichs().len() < 6
     {
         snapshotcache.get(stichseq, rulestatecache)
     } else {
@@ -281,16 +304,43 @@ fn explore_snapshots_internal<ForEachSnapshot>(
                     veccard_allowed.into_iter().map(|card| {
                         ahand[epi_current].play_card(card);
                         let output = stichseq.zugeben_and_restore(card, rules, |stichseq| {
-                            macro_rules! next_step {() => {explore_snapshots_internal(
-                                ahand,
-                                rules,
-                                rulestatecache,
-                                stichseq,
-                                func_filter_allowed_cards,
-                                foreachsnapshot,
-                                snapshotcache,
-                                snapshotvisualizer,
-                            )}}
+                            macro_rules! next_step {() => {
+                                match fn_snapshotcache(stichseq, &rulestatecache.fixed) {
+                                    VSnapshotCache::Remove => explore_snapshots_internal(
+                                        ahand,
+                                        rules,
+                                        rulestatecache,
+                                        stichseq,
+                                        func_filter_allowed_cards,
+                                        foreachsnapshot,
+                                        &mut SSnapshotCacheNone,
+                                        fn_snapshotcache.clone(),
+                                        snapshotvisualizer,
+                                    ),
+                                    VSnapshotCache::Keep => explore_snapshots_internal(
+                                        ahand,
+                                        rules,
+                                        rulestatecache,
+                                        stichseq,
+                                        func_filter_allowed_cards,
+                                        foreachsnapshot,
+                                        snapshotcache,
+                                        fn_snapshotcache.clone(),
+                                        snapshotvisualizer,
+                                    ),
+                                    VSnapshotCache::Renew(mut snapshotcache_new) => explore_snapshots_internal(
+                                        ahand,
+                                        rules,
+                                        rulestatecache,
+                                        stichseq,
+                                        func_filter_allowed_cards,
+                                        foreachsnapshot,
+                                        &mut snapshotcache_new,
+                                        fn_snapshotcache.clone(),
+                                        snapshotvisualizer,
+                                    ),
+                                }
+                            }}
                             if stichseq.current_stich().is_empty() {
                                 let unregisterstich = rulestatecache.register_stich(
                                     unwrap!(stichseq.completed_stichs().last()),

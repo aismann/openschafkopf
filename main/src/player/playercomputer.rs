@@ -1,7 +1,7 @@
 use crate::ai::{
     handiterators::forever_rand_hands,
     suspicion::{
-        explore_snapshots, SMinReachablePayout, SNoVisualization, SSnapshotCacheNone,
+        explore_snapshots, SMinReachablePayout, SNoVisualization, SSnapshotCacheNone, VSnapshotCache,
     },
     *,
 };
@@ -124,7 +124,7 @@ impl TPlayer for SPlayerComputer {
                             /*tpln_stoss_doubling*/stoss_and_doublings(vecstoss, doublings),
                             n_stock,
                         ),
-                        &mut SSnapshotCacheNone,
+                        |_,_| VSnapshotCache::Renew(SSnapshotCacheNone),
                         &mut SNoVisualization,
                     ).t_min[epi]
                 })

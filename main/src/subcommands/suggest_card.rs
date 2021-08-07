@@ -12,6 +12,7 @@ pub fn subcommand(str_subcommand: &'static str) -> clap::App {
         .arg(clap::Arg::with_name("branching").long("branching").takes_value(true))
         .arg(clap::Arg::with_name("prune").long("prune").takes_value(true))
         .arg(clap::Arg::with_name("visualize").long("visualize").takes_value(true))
+        .arg(clap::Arg::with_name("snapcache").long("snapcache").takes_value(true))
 }
 
 pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
@@ -33,6 +34,23 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             let determinebestcardresult = { // we are interested in payout => single-card-optimization useless
                 macro_rules! forward{(($func_filter_allowed_cards: expr), ($foreachsnapshot: ident), $fn_visualizer: expr,) => {{ // TODORUST generic closures
                     let n_repeat_hand = clapmatches.value_of("repeat_hands").unwrap_or("1").parse()?;
+                    let veci_snap = clapmatches
+                        .value_of("snapcache")
+                        .unwrap_or("")
+                        .split(',')
+                        .map(|str_i| unwrap!(str_i.parse::<isize>()))
+                        .collect::<Vec<_>>();
+                    let vecsnapcache = (0..=8)
+                        .map(|i| {
+                            if veci_snap.contains(&i) {
+                                VSnapshotCache::Renew(())
+                            } else if veci_snap.contains(&(-i)) {
+                                VSnapshotCache::Remove
+                            } else {
+                                VSnapshotCache::Keep
+                            }
+                        })
+                        .collect::<Vec<_>>();
                     determine_best_card(
                         &determinebestcard,
                         itahand
@@ -54,8 +72,23 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                             /*tpln_stoss_doubling*/(0, 0), // TODO? make customizable
                             /*n_stock*/0, // TODO? make customizable
                         ),
-                        /*fn_snapshotcache*/|rulestatecachefixed| {
-                            unwrap!(rules.snapshot_cache(rulestatecachefixed)) // TODO distinguish None or implement snapshotcache for all rules
+                        /*fn_snapshotcache*/|stichseq, rulestatecachefixed| {
+                            match vecsnapcache[stichseq.completed_stichs().len()] {
+                                VSnapshotCache::Keep => VSnapshotCache::Keep,
+                                VSnapshotCache::Remove => VSnapshotCache::Remove,
+                                VSnapshotCache::Renew(()) => {
+                                    VSnapshotCache::Renew(
+                                        unwrap!(rules.snapshot_cache(rulestatecachefixed)) // TODO distinguish None or implement snapshotcache for all rules
+                                    )
+                                }
+                            }
+                            // match stichseq.completed_stichs().len() {
+                            //     0|3 => VSnapshotCache::Renew(
+                            //         unwrap!(rules.snapshot_cache(rulestatecachefixed)) // TODO distinguish None or implement snapshotcache for all rules
+                            //     ),
+                            //     1|2|4|5|6 => VSnapshotCache::Keep,
+                            //     _ => VSnapshotCache::Remove,
+                            // }
                         },
                         $fn_visualizer,
                     )

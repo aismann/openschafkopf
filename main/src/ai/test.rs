@@ -136,7 +136,7 @@ fn detect_expensive_all_possible_hands() {
                                 &mut game.stichseq.clone(),
                                 &|_vecstich_complete, _vecstich_successor| {/*no filtering*/},
                                 &SLeafCounter{},
-                                &mut SSnapshotCacheNone,
+                                |_,_| VSnapshotCache::Renew(SSnapshotCacheNone),
                                 &mut SNoVisualization,
                             ),
                             2000
