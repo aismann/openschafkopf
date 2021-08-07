@@ -151,16 +151,26 @@ impl<Output> TSnapshotVisualizer<Output> for SNoVisualization {
     fn end_snapshot(&mut self, _output: &Output) {}
 }
 
-pub trait TSnapshotCache<T> {
-    fn get(&self) -> Option<T>;
-    fn put(&mut self, t: &T); // borrow to avoid unconditional copy - TODO is this the best idea?
+pub trait TSnapshotCache<T> : std::fmt::Debug {
+    fn get(&self, stichseq: &SStichSequence, rulestatecache: &SRuleStateCache) -> Option<T>;
+    fn put(&mut self, stichseq: &SStichSequence, rulestatecache: &SRuleStateCache, t: &T); // borrow to avoid unconditional copy - TODO is this the best idea?
 }
+#[derive(Debug)]
 pub struct SSnapshotCacheNone;
 impl<T> TSnapshotCache<T> for SSnapshotCacheNone {
-    fn get(&self) -> Option<T> {
+    fn get(&self, _stichseq: &SStichSequence, _rulestatecache: &SRuleStateCache) -> Option<T> {
         None
     }
-    fn put(&mut self, _t: &T) {}
+    fn put(&mut self, _stichseq: &SStichSequence, _rulestatecache: &SRuleStateCache, _t: &T) {
+    }
+}
+impl<T> TSnapshotCache<T> for Box<dyn TSnapshotCache<T>> {
+    fn get(&self, stichseq: &SStichSequence, rulestatecache: &SRuleStateCache) -> Option<T> {
+        self.as_ref().get(stichseq, rulestatecache)
+    }
+    fn put(&mut self, stichseq: &SStichSequence, rulestatecache: &SRuleStateCache, t: &T) {
+        self.as_mut().put(stichseq, rulestatecache, t)
+    }
 }
 
 pub fn explore_snapshots<ForEachSnapshot>(
@@ -206,7 +216,16 @@ fn explore_snapshots_internal<ForEachSnapshot>(
 {
     snapshotvisualizer.begin_snapshot(stichseq, ahand);
     let epi_current = unwrap!(stichseq.current_stich().current_playerindex());
-    let output = if let Some(output) = snapshotcache.get() {
+    let ooutput = if 
+        stichseq.current_stich().size()==0
+        // && stichseq.visible_stichs().len() > 2
+        && stichseq.visible_stichs().len() < 6
+    {
+        snapshotcache.get(stichseq, rulestatecache)
+    } else {
+        None
+    };
+    let output = if let Some(output) = ooutput {
         output
     } else {
         let output = if debug_verify_eq!(
@@ -290,7 +309,7 @@ fn explore_snapshots_internal<ForEachSnapshot>(
                 )
             })
         };
-        snapshotcache.put(&output);
+        snapshotcache.put(stichseq, rulestatecache, &output);
         output
     };
     snapshotvisualizer.end_snapshot(&output);

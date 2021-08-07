@@ -17,6 +17,7 @@ pub mod tests;
 
 use crate::ai::ahand_vecstich_card_count_is_compatible;
 use crate::ai::rulespecific::*;
+use crate::ai::suspicion::*;
 use crate::game::SStichSequence;
 use crate::primitives::*;
 use crate::rules::card_points::points_stich;
@@ -122,7 +123,7 @@ pub struct SRuleStateCacheFixed {
     mapcardoepi: EnumMap<SCard, Option<EPlayerIndex>>, // TODO? Option<EPlayerIndex> is clean for EKurzLang. Does it incur runtime overhead?
 }
 impl SRuleStateCacheFixed {
-    fn new(stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>) -> Self {
+    pub fn new(stichseq: &SStichSequence, ahand: &EnumMap<EPlayerIndex, SHand>) -> Self {
         debug_assert!(ahand_vecstich_card_count_is_compatible(stichseq, ahand));
         let mut mapcardoepi = SCard::map_from_fn(|_| None);
         let mut register_card = |card, epi| {
@@ -147,7 +148,7 @@ impl SRuleStateCacheFixed {
         unwrap!(self.mapcardoepi[card])
     }
 }
-#[derive(Eq, PartialEq, Debug)]
+#[derive(Eq, PartialEq, Hash, Clone, Debug, Ord, PartialOrd)]
 pub struct SPointStichCount {
     pub n_stich: usize,
     pub n_point: isize,
@@ -388,6 +389,10 @@ pub trait TRules : fmt::Display + TAsRules + Sync + fmt::Debug + TRulesBoxClone 
     }
 
     fn rulespecific_ai<'rules>(&'rules self) -> Option<Box<dyn TRuleSpecificAI + 'rules>> {
+        None
+    }
+
+    fn snapshot_cache(&self, _rulestatecachefixed: &SRuleStateCacheFixed) -> Option<Box<dyn TSnapshotCache<SMinMax>>> {
         None
     }
 }
