@@ -155,19 +155,6 @@ pub fn analyze_game(str_description: &str, str_link: &str, game_in: SGame) -> SG
 }
 
 pub fn generate_html_auxiliary_files(path_out_dir: &std::path::Path) -> Result<(), failure::Error> {
-    macro_rules! write_auxiliary_file(($str_filename: expr) => {
-        std::fs::File::create(
-            path_out_dir
-                .join($str_filename)
-        )?
-            .write_all(
-                include_bytes!(
-                    concat!(env!("OUT_DIR"), "/", $str_filename) // https://doc.rust-lang.org/cargo/reference/build-scripts.html#case-study-code-generation
-                )
-            )
-    });
-    write_auxiliary_file!("cards.png")?;
-    write_auxiliary_file!("css.css")?;
     Ok(())
 }
 
