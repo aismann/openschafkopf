@@ -24,6 +24,11 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             _determinebestcard: SDetermineBestCard,
             _b_verbose: bool,
         ) -> Result<(), Error> {
+            // The following line prevents compilation of:
+            // * game_analysis/mod.rs
+            // * skui/mod.rs
+            // Removing it makes the code compile.
+            use rhai::Engine;
             let clapmatches = self.clapmatches;
             let vecconstraint = unwrap!(clapmatches.values_of("inspect"))
                 .map(|str_inspect| /*-> Result<_, Error>*/ {
