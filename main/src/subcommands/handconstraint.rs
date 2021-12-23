@@ -23,6 +23,7 @@ pub enum VConstraint {
     },
     Conjunction(Box<VConstraint>, Box<VConstraint>),
     Disjunction(Box<VConstraint>, Box<VConstraint>),
+    Rhai(std::path::PathBuf),
 }
 
 impl VNumVal {
@@ -71,6 +72,41 @@ impl VConstraint {
             VConstraint::Relation{numval_lhs, ord, numval_rhs} => fn_bool(*ord == numval_lhs.eval(ahand, rules).cmp(&numval_rhs.eval(ahand, rules))),
             VConstraint::Conjunction(constraint_lhs, constraint_rhs) => fn_bool(constraint_lhs.eval(ahand, rules) && constraint_rhs.eval(ahand, rules)),
             VConstraint::Disjunction(constraint_lhs, constraint_rhs) => fn_bool(constraint_lhs.eval(ahand, rules) || constraint_rhs.eval(ahand, rules)),
+            VConstraint::Rhai(path) => {
+                let mut engine = rhai::Engine::new();
+                let mut scope = rhai::Scope::new();
+                let ast = unwrap!(engine.compile_file(path.clone()));
+                engine
+                    .register_type::<EnumMap<EPlayerIndex, SHand>>()
+                    .register_indexer_get(|enummap: &mut EnumMap<EPlayerIndex, SHand>, i: /*Rhai by default uses i64*/i64| -> SHand {
+                        enummap[unwrap!(EPlayerIndex::checked_from_usize(i.as_num::<usize>()))].clone()
+                    })
+                    .register_type::<SHand>()
+                    .register_fn("to_string", SHand::to_string)
+                    .register_fn("contains", SHand::contains)
+                    .register_fn("cards", |hand: /*TODO can we borrow here?*/SHand| -> Vec<SCard> {
+                        hand.cards().to_vec()
+                    })
+                    .register_fn("count", |hand: SHand, rules: Box<&dyn TRules>, eschlag: ESchlag| {
+                        hand.cards().iter().copied().filter(|card| card.schlag()==eschlag).count()
+                    })
+                    .register_type::<SCard>()
+                    .register_fn("farbe", SCard::farbe)
+                    .register_fn("schlag", SCard::schlag)
+                    .register_fn("to_string", SCard::to_string)
+                    .register_type::<&dyn TRules>()
+                ;
+                // TODO all this is ugly
+                let resn : Result</*Rhai by default uses i64.*/i64,_> = engine.call_fn(&mut scope, &ast, "inspect", (ahand.clone(), rules.box_clone()));
+                let resb : Result<bool,_> = engine.call_fn(&mut scope, &ast, "inspect", (ahand.clone(), rules.box_clone()));
+                if let Ok(ref n) = resn {
+                    fn_usize(n.as_num::<usize>())
+                } else if let Ok(ref b) = resb {
+                    fn_bool(*b)
+                } else {
+                    todo!("{:?}\n{:?}\nProbably replace all this by a fn_dynamic", resn, resb);
+                }
+            },
         }
     }
     pub fn eval(&self, ahand: &EnumMap<EPlayerIndex, SHand>, rules: &dyn TRules) -> bool {
@@ -94,6 +130,7 @@ impl std::fmt::Display for VConstraint {
             ),
             VConstraint::Conjunction(constraint_lhs, constraint_rhs) => write!(f, "({})&({})", constraint_lhs, constraint_rhs),
             VConstraint::Disjunction(constraint_lhs, constraint_rhs) => write!(f, "({})|({})", constraint_lhs, constraint_rhs),
+            VConstraint::Rhai(path) => write!(f, /*TODO proper formatting*/"Rhai({:?})", path),
         }
     }
 }
@@ -173,7 +210,20 @@ fn constraint_parser_<I: Stream<Item=char>>() -> impl Parser<Input = I, Output =
     }}
     make_bin_op_parser!(conjunction, '&', Conjunction);
     make_bin_op_parser!(disjunction, '|', Disjunction);
-    choice!(conjunction, disjunction, attempt(single_constraint_parser()))
+    choice((
+        conjunction,
+        disjunction,
+        attempt(single_constraint_parser()),
+        attempt(
+            (
+                char('{'),
+                many1(alpha_num().or(char('.')).or(char('/'))),
+                char('}'),
+            ).map(|(_chr_open_parenthesis, str_path, _chr_close_parenthesis): (_, String, _)| -> VConstraint {
+                VConstraint::Rhai(unwrap!(str_path.parse()))
+            }),
+        ),
+    ))
 }
 
 parser!(
