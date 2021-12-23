@@ -200,22 +200,22 @@ pub fn generate_analysis_html(
         str_link=str_link,
         str_rules=str_rules,
     )
-    + &crate::ai::suspicion::player_table(epi_self, |epi| {
+    + type_inference!(&str, &crate::ai::suspicion::player_table(epi_self, |epi| {
         let mut veccard = ahand[epi].cards().to_vec();
         game.rules.sort_cards_first_trumpf_then_farbe(&mut veccard);
         Some(veccard.into_iter().map(|card|
             crate::ai::suspicion::output_card(card, /*b_border*/false)
         ).format(""))
-    })
+    }))
     + "<table><tr>"
-    + &format!("{}", game.stichseq.completed_stichs().iter().map(|stich| {
+    + type_inference!(&str, &format!("{}", game.stichseq.completed_stichs().iter().map(|stich| {
         format!("<td>{}</td>", crate::ai::suspicion::player_table(epi_self, |epi| {
             Some(crate::ai::suspicion::output_card(stich[epi], /*b_border*/epi==stich.first_playerindex()))
         }))
-    }).format("\n"))
+    }).format("\n")))
     + "</tr></table>"
     + "<ul>"
-    + &format!("{}", slcanalysisimpr.iter().map(|analysisimpr| {
+    + type_inference!(&str, &format!("{}", slcanalysisimpr.iter().map(|analysisimpr| {
         let mut str_analysisimpr = format!(
             r###"<li>
                 Stich {i_stich}, Spieler {epi}:
@@ -247,7 +247,7 @@ pub fn generate_analysis_html(
         }
         str_analysisimpr += "</li>";
         str_analysisimpr
-    }).format(""))
+    }).format("")))
     + "</ul>"
     + "</body></html>"
 }
