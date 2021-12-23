@@ -77,24 +77,34 @@ impl VConstraint {
                 let mut scope = rhai::Scope::new();
                 let ast = unwrap!(engine.compile_file(path.clone()));
                 engine
+                    .register_type::<EPlayerIndex>()
+                    .register_fn("to_string", EPlayerIndex::to_string)
                     .register_type::<EnumMap<EPlayerIndex, SHand>>()
-                    .register_indexer_get(|enummap: &mut EnumMap<EPlayerIndex, SHand>, i: /*Rhai by default uses i64*/i64| -> SHand {
-                        enummap[unwrap!(EPlayerIndex::checked_from_usize(i.as_num::<usize>()))].clone()
+                    .register_indexer_get(|enummap: &mut EnumMap<EPlayerIndex, SHand>, epi: EPlayerIndex| -> SHand {
+                        enummap[epi].clone()
                     })
                     .register_type::<SHand>()
-                    .register_fn("to_string", SHand::to_string)
+                    .register_fn("to_string", |hand: SHand| hand.to_string())
                     .register_fn("contains", SHand::contains)
                     .register_fn("cards", |hand: /*TODO can we borrow here?*/SHand| -> Vec<SCard> {
                         hand.cards().to_vec()
                     })
-                    .register_fn("count", |hand: SHand, rules: Box<&dyn TRules>, eschlag: ESchlag| {
-                        hand.cards().iter().copied().filter(|card| card.schlag()==eschlag).count()
+                    .register_fn("count", |hand: SHand, rules: Box<dyn TRules>, n_eschlag: i64| {
+                        hand.cards().iter().copied().filter(|card|
+                            card.schlag()==unwrap!(ESchlag::checked_from_usize(n_eschlag.as_num::<usize>()))
+                        ).count()
                     })
                     .register_type::<SCard>()
                     .register_fn("farbe", SCard::farbe)
                     .register_fn("schlag", SCard::schlag)
                     .register_fn("to_string", SCard::to_string)
                     .register_type::<&dyn TRules>()
+                    .register_fn("to_string", |rules: Box<dyn TRules>| rules.to_string())
+                    .register_fn("playerindex", |rules: Box<dyn TRules>| rules.playerindex())
+                    .register_type::<Option<EPlayerIndex>>()
+                    .register_fn("is_some", Option::<EPlayerIndex>::is_some)
+                    .register_fn("is_none", Option::<EPlayerIndex>::is_none)
+                    .register_fn("unwrap", Option::<EPlayerIndex>::unwrap)
                 ;
                 // TODO all this is ugly
                 let resn : Result</*Rhai by default uses i64.*/i64,_> = engine.call_fn(&mut scope, &ast, "inspect", (ahand.clone(), rules.box_clone()));

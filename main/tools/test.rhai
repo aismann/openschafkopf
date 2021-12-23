@@ -1,10 +1,19 @@
+fn dbg_print(x) {
+    debug(x);
+    print(x);
+}
+
 fn inspect(ahand, rules) {
-    debug(ahand);
-    debug(ahand[0]);
-    debug(ahand[0]);
-    debug(ahand[0].cards());
-    //debug(ahand[0].cards()[0]);
-    debug(rules);
-    count(ahand[0], rules, 1);
-    false
+    switch rules.to_string() {
+        "HerzSolo" => {
+            let epi = rules.playerindex().unwrap();
+            let hand = ahand[epi];
+            dbg_print(hand);
+            count(hand, rules, 3)
+        }
+        _ => {
+            print("Unknown rule type.");
+            return
+        }
+    }
 }
