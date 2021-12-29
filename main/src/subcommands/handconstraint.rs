@@ -115,7 +115,25 @@ impl VConstraint {
                         rhaiparams.count(i_epi, |&card| rhaiparams.rules.trumpforfarbe(card)==trumpforfarbe)
                     });
                 }
-                    // TODO schlag
+                for (str_schlag, eschlag) in [
+                    ("sieben", ESchlag::S7),
+                    ("acht", ESchlag::S8),
+                    ("neun", ESchlag::S9),
+                    ("zehn", ESchlag::Zehn),
+                    ("unter", ESchlag::Unter),
+                    ("ober", ESchlag::Ober),
+                    ("koenig", ESchlag::Koenig),
+                    ("ass", ESchlag::Ass),
+                ] {
+                    engine.register_fn(str_schlag, move |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
+                        rhaiparams.count(i_epi, |card| card.schlag()==eschlag)
+                    });
+                }
+                for (str_card, card) in <SCard as TPlainEnum>::values().map(|card| (card.to_string(), card)) {
+                    engine.register_fn(str_card, move |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
+                        rhaiparams.count(i_epi, |&card_hand| card_hand==card)
+                    });
+                }
                 engine
                     .register_type::<EPlayerIndex>()
                     .register_fn("to_string", EPlayerIndex::to_string)
