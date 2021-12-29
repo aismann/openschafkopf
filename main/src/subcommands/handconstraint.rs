@@ -145,11 +145,12 @@ impl VConstraint {
                         rules.playerindex().unwrap().to_usize().as_num::<SRhaiUsize>()
                     )
                 ;
-                let rhaiparams = SRhaiParams {
-                    ahand: ahand.clone(),
-                    rules: rules.box_clone(),
-                };
-                let resdynamic : Result<rhai::Dynamic,_> = engine.call_fn(&mut scope, &ast, "inspect", (rhaiparams.clone(),));
+                let resdynamic : Result<rhai::Dynamic,_> = engine.call_fn(&mut scope, &ast, "inspect", (
+                    SRhaiParams {
+                        ahand: ahand.clone(),
+                        rules: rules.box_clone(),
+                    },
+                ));
                 match resdynamic {
                     Ok(dynamic) => {
                         if let Ok(n) = dynamic.as_int() {
