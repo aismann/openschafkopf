@@ -1,18 +1,21 @@
 fn dbg_print(x) {
     debug(x);
     print(x);
+    x
 }
 
-fn inspect(ahand, rules) {
-    switch rules.to_string() {
+fn inspect(params) {
+    switch params.rules.to_string() {
         "HerzSolo" => {
-            let epi = rules.playerindex().unwrap();
-            let hand = ahand[epi];
+            let epi = params.rules.playerindex();
+            let hand = params.ahand[epi];
             dbg_print(hand);
-            count(hand, rules, 3)
+            let n_trumpf = params.trumpf(epi);
+            print(n_trumpf);
+            return "Hallo";
         }
         _ => {
-            print("Unknown rule type.");
+            print("Warning: Unknown rule type.");
             return
         }
     }

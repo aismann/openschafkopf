@@ -65,6 +65,7 @@ impl VConstraint {
         rules: &dyn TRules,
         fn_bool: impl Fn(bool)->R,
         fn_usize: impl Fn(usize)->R,
+        fn_rhai: impl Fn(Option<rhai::Dynamic>)->R,
     ) -> R {
         match self {
             VConstraint::Not(constraint) => fn_bool(!constraint.eval(ahand, rules)),
@@ -73,15 +74,60 @@ impl VConstraint {
             VConstraint::Conjunction(constraint_lhs, constraint_rhs) => fn_bool(constraint_lhs.eval(ahand, rules) && constraint_rhs.eval(ahand, rules)),
             VConstraint::Disjunction(constraint_lhs, constraint_rhs) => fn_bool(constraint_lhs.eval(ahand, rules) || constraint_rhs.eval(ahand, rules)),
             VConstraint::Rhai(path) => {
+                #[derive(Clone)]
+                struct SRhaiParams {
+                    ahand: EnumMap<EPlayerIndex, SHand>,
+                    rules: Box<dyn TRules>,
+                }
+                type SRhaiUsize = i64; // TODO good idea?
+                fn epi_from_rhai(i: SRhaiUsize) -> EPlayerIndex {
+                    unwrap!(EPlayerIndex::checked_from_usize(i.as_num::<usize>()))
+                }
+                impl SRhaiParams {
+                    fn count(&self, i_epi: SRhaiUsize, fn_pred: impl Fn(&SCard)->bool) -> SRhaiUsize {
+                        self.ahand[epi_from_rhai(i_epi)]
+                            .cards()
+                            .iter()
+                            .copied()
+                            .filter(fn_pred)
+                            .count()
+                            .as_num::<SRhaiUsize>()
+                    }
+                    fn count_trumpforfarbe(&self, i_epi: SRhaiUsize, trumpforfarbe: VTrumpfOrFarbe) -> SRhaiUsize {
+                        self.count(i_epi, |&card| self.rules.trumpforfarbe(card)==trumpforfarbe)
+                    }
+                }
                 let mut engine = rhai::Engine::new();
                 let mut scope = rhai::Scope::new();
                 let ast = unwrap!(engine.compile_file(path.clone()));
                 engine
+                    .register_type::<SRhaiParams>()
+                    .register_get("rules", |rhaiparams: &mut SRhaiParams| rhaiparams.rules.box_clone())
+                    .register_get("ahand", |rhaiparams: &mut SRhaiParams| rhaiparams.ahand.clone())
+                    .register_fn("card", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize, card: SCard| {
+                        rhaiparams.count(i_epi, |&card_hand| card_hand==card)
+                    })
+                    .register_fn("trumpf", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
+                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Trumpf)
+                    })
+                    .register_fn("eichel", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
+                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Farbe(EFarbe::Eichel))
+                    })
+                    .register_fn("gras", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
+                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Farbe(EFarbe::Gras))
+                    })
+                    .register_fn("herz", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
+                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Farbe(EFarbe::Herz))
+                    })
+                    .register_fn("schelln", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
+                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Farbe(EFarbe::Schelln))
+                    })
+                    // TODO schlag
                     .register_type::<EPlayerIndex>()
                     .register_fn("to_string", EPlayerIndex::to_string)
                     .register_type::<EnumMap<EPlayerIndex, SHand>>()
-                    .register_indexer_get(|enummap: &mut EnumMap<EPlayerIndex, SHand>, epi: EPlayerIndex| -> SHand {
-                        enummap[epi].clone()
+                    .register_indexer_get(|enummap: &mut EnumMap<EPlayerIndex, SHand>, i_epi: SRhaiUsize| -> SHand {
+                        enummap[epi_from_rhai(i_epi)].clone()
                     })
                     .register_type::<SHand>()
                     .register_fn("to_string", |hand: SHand| hand.to_string())
@@ -89,38 +135,42 @@ impl VConstraint {
                     .register_fn("cards", |hand: /*TODO can we borrow here?*/SHand| -> Vec<SCard> {
                         hand.cards().to_vec()
                     })
-                    .register_fn("count", |hand: SHand, rules: Box<dyn TRules>, n_eschlag: i64| {
-                        hand.cards().iter().copied().filter(|card|
-                            card.schlag()==unwrap!(ESchlag::checked_from_usize(n_eschlag.as_num::<usize>()))
-                        ).count()
-                    })
                     .register_type::<SCard>()
                     .register_fn("farbe", SCard::farbe)
                     .register_fn("schlag", SCard::schlag)
                     .register_fn("to_string", SCard::to_string)
                     .register_type::<&dyn TRules>()
                     .register_fn("to_string", |rules: Box<dyn TRules>| rules.to_string())
-                    .register_fn("playerindex", |rules: Box<dyn TRules>| rules.playerindex())
-                    .register_type::<Option<EPlayerIndex>>()
-                    .register_fn("is_some", Option::<EPlayerIndex>::is_some)
-                    .register_fn("is_none", Option::<EPlayerIndex>::is_none)
-                    .register_fn("unwrap", Option::<EPlayerIndex>::unwrap)
+                    .register_fn("playerindex", |rules: Box<dyn TRules>|
+                        rules.playerindex().unwrap().to_usize().as_num::<SRhaiUsize>()
+                    )
                 ;
-                // TODO all this is ugly
-                let resn : Result</*Rhai by default uses i64.*/i64,_> = engine.call_fn(&mut scope, &ast, "inspect", (ahand.clone(), rules.box_clone()));
-                let resb : Result<bool,_> = engine.call_fn(&mut scope, &ast, "inspect", (ahand.clone(), rules.box_clone()));
-                if let Ok(ref n) = resn {
-                    fn_usize(n.as_num::<usize>())
-                } else if let Ok(ref b) = resb {
-                    fn_bool(*b)
-                } else {
-                    todo!("{:?}\n{:?}\nProbably replace all this by a fn_dynamic", resn, resb);
+                let rhaiparams = SRhaiParams {
+                    ahand: ahand.clone(),
+                    rules: rules.box_clone(),
+                };
+                let resdynamic : Result<rhai::Dynamic,_> = engine.call_fn(&mut scope, &ast, "inspect", (rhaiparams.clone(),));
+                match resdynamic {
+                    Ok(dynamic) => {
+                        if let Ok(n) = dynamic.as_int() {
+                            fn_usize(n.as_num::<usize>())
+                        } else if let Ok(b) = dynamic.as_bool() {
+                            fn_bool(b)
+                        } else {
+                            println!("Unknown result data type.");
+                            fn_rhai(Some(dynamic))
+                        }
+                    },
+                    Err(e) => {
+                        println!("Error evaluating script ({:?}).", e);
+                        fn_rhai(None)
+                    }
                 }
             },
         }
     }
     pub fn eval(&self, ahand: &EnumMap<EPlayerIndex, SHand>, rules: &dyn TRules) -> bool {
-        self.internal_eval(ahand, rules, |b| b, |n| n!=0)
+        self.internal_eval(ahand, rules, |b| b, |n| n!=0, |_odynamic| false)
     }
 }
 

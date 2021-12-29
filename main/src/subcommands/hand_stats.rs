@@ -38,6 +38,7 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             enum VInspectValue {
                 Usize(usize),
                 Bool(bool),
+                Str(Option<String>),
             }
             let mut mapvecinspectvaluen = std::collections::HashMap::<Vec<_>,_>::new();
             for ahand in itahand {
@@ -45,7 +46,13 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     .entry(
                         vecconstraint.iter()
                             .map(|constraint| 
-                                constraint.internal_eval(&ahand, rules, VInspectValue::Bool, VInspectValue::Usize),
+                                constraint.internal_eval(
+                                    &ahand,
+                                    rules,
+                                    VInspectValue::Bool,
+                                    VInspectValue::Usize,
+                                    |odynamic| VInspectValue::Str(odynamic.map(|dynamic| dynamic.to_string()))
+                                ),
                             )
                             .collect()
                     )
@@ -60,6 +67,7 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                         match inspectvalue {
                             VInspectValue::Usize(n_val) => format!("{}", n_val),
                             VInspectValue::Bool(b_val) => format!("{}", b_val),
+                            VInspectValue::Str(ostr) => ostr.unwrap_or_default()
                         }
                     );
                 }
