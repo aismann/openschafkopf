@@ -93,9 +93,6 @@ impl VConstraint {
                             .count()
                             .as_num::<SRhaiUsize>()
                     }
-                    fn count_trumpforfarbe(&self, i_epi: SRhaiUsize, trumpforfarbe: VTrumpfOrFarbe) -> SRhaiUsize {
-                        self.count(i_epi, |&card| self.rules.trumpforfarbe(card)==trumpforfarbe)
-                    }
                 }
                 let mut engine = rhai::Engine::new();
                 let mut scope = rhai::Scope::new();
@@ -106,23 +103,20 @@ impl VConstraint {
                     .register_get("ahand", |rhaiparams: &mut SRhaiParams| rhaiparams.ahand.clone())
                     .register_fn("card", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize, card: SCard| {
                         rhaiparams.count(i_epi, |&card_hand| card_hand==card)
-                    })
-                    .register_fn("trumpf", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
-                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Trumpf)
-                    })
-                    .register_fn("eichel", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
-                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Farbe(EFarbe::Eichel))
-                    })
-                    .register_fn("gras", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
-                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Farbe(EFarbe::Gras))
-                    })
-                    .register_fn("herz", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
-                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Farbe(EFarbe::Herz))
-                    })
-                    .register_fn("schelln", |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
-                        rhaiparams.count_trumpforfarbe(i_epi, VTrumpfOrFarbe::Farbe(EFarbe::Schelln))
-                    })
+                    });
+                for (str_trumpforfarbe, trumpforfarbe) in [
+                    ("trumpf", VTrumpfOrFarbe::Trumpf),
+                    ("eichel", VTrumpfOrFarbe::Farbe(EFarbe::Eichel)),
+                    ("gras", VTrumpfOrFarbe::Farbe(EFarbe::Gras)),
+                    ("herz", VTrumpfOrFarbe::Farbe(EFarbe::Herz)),
+                    ("schelln", VTrumpfOrFarbe::Farbe(EFarbe::Schelln)),
+                ] {
+                    engine.register_fn(str_trumpforfarbe, move |rhaiparams: SRhaiParams, i_epi: SRhaiUsize| {
+                        rhaiparams.count(i_epi, |&card| rhaiparams.rules.trumpforfarbe(card)==trumpforfarbe)
+                    });
+                }
                     // TODO schlag
+                engine
                     .register_type::<EPlayerIndex>()
                     .register_fn("to_string", EPlayerIndex::to_string)
                     .register_type::<EnumMap<EPlayerIndex, SHand>>()
