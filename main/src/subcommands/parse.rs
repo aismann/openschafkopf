@@ -4,6 +4,7 @@ use crate::rules::ruleset::{VStockOrT};
 use crate::util::*;
 use itertools::Itertools;
 use crate::primitives::*;
+use std::io::Write;
 
 pub fn subcommand(str_subcommand: &str) -> clap::App {
     clap::SubCommand::with_name(str_subcommand)
@@ -77,10 +78,14 @@ fn neural_network_input_to_card(n: usize) -> Result<Option<SCard>, Error> {
 }
 
 pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
+    let mut mapstrfile = std::collections::HashMap::new();
+    let path_dst = std::path::PathBuf::from(&format!("neural_network_input/{}",
+        chrono::Local::now().format("%Y%m%d%H%M%S"),
+    ));
     super::glob_files(
         unwrap!(clapmatches.values_of("file")),
         |path, str_input| {
-            if let Ok(SGameResultGeneric{stockorgame: VStockOrT::OrT(game), ..}) = analyze_sauspiel_html(&str_input) {
+            if let Ok(ref gameresult@SGameResultGeneric{stockorgame: VStockOrT::OrT(ref game), ..}) = analyze_sauspiel_html(&str_input) {
                 let str_out = format!("{}{}: {}",
                     game.rules,
                     if let Some(epi) = game.rules.playerindex() {
@@ -106,27 +111,32 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                     game.n_stock,
                 );
                 assert_eq!(game.stichseq.visible_stichs(), game.stichseq.completed_stichs());
+                let path_gameresult = path_dst.join(super::gameresult_to_dir(&gameresult));
+                let file = mapstrfile.entry(path_gameresult.clone())
+                    .or_insert_with(|| {
+                        unwrap!(std::fs::create_dir_all(&path_gameresult));
+                        unwrap!(std::fs::File::create(path_gameresult.join("csv.csv")))
+                    });
+                let oepi_active = verify_eq!(game_csv.rules.playerindex(), game.rules.playerindex());
                 let ekurzlang = verify_eq!(game_csv.kurzlang(), game.kurzlang());
                 for (epi, &card_zugeben) in game.stichseq.visible_cards() {
                     assert_eq!(epi, unwrap!(game_csv.which_player_can_do_something()).0);
-                    if let Some(epi_active)=game_csv.rules.playerindex() {
-                        print!("{},", epi_active);
+                    if let Some(ref epi_active)=oepi_active {
+                        unwrap!(write!(file, "{},", epi_active));
                     }
                     for ocard_hand in game_csv.ahand[epi].cards().iter().copied().map(Some)
-                        .chain(std::iter::repeat(None))
-                        .take(ekurzlang.cards_per_player())
+                        .pad_using(ekurzlang.cards_per_player(), |_| None)
                     {
-                        print!("{:?},", card_to_neural_network_input(ocard_hand));
+                        unwrap!(write!(file, "{},", card_to_neural_network_input(ocard_hand)));
                     }
                     for ocard_played_so_far in game_csv.stichseq.visible_cards()
                         .map(|(_epi, &card_played_so_far)| Some(card_played_so_far))
-                        .chain(std::iter::repeat(None))
-                        .take(ekurzlang.cards_per_player() * EPlayerIndex::SIZE)
+                        .pad_using(ekurzlang.cards_per_player() * EPlayerIndex::SIZE, |_| None)
                     {
-                        print!("{:?},", card_to_neural_network_input(ocard_played_so_far));
+                        unwrap!(write!(file, "{},", card_to_neural_network_input(ocard_played_so_far)));
                     }
-                    print!("{}", card_to_neural_network_input(Some(card_zugeben)));
-                    println!();
+                    unwrap!(write!(file, "{}", card_to_neural_network_input(Some(card_zugeben))));
+                    unwrap!(write!(file, "\n"));
                     unwrap!(game_csv.zugeben(card_zugeben, epi)); // validated by analyze_sauspiel_html
                 }
             } else {
