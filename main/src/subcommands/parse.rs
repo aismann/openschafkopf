@@ -115,7 +115,7 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 let file = mapstrfile.entry(path_gameresult.clone())
                     .or_insert_with(|| {
                         unwrap!(std::fs::create_dir_all(&path_gameresult));
-                        unwrap!(std::fs::File::create(path_gameresult.join("csv.csv")))
+                        std::io::BufWriter::new(unwrap!(std::fs::File::create(path_gameresult.join("csv.csv"))))
                     });
                 let oepi_active = verify_eq!(game_csv.rules.playerindex(), game.rules.playerindex());
                 let ekurzlang = verify_eq!(game_csv.kurzlang(), game.kurzlang());
@@ -143,5 +143,9 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
                 eprintln!("Nothing found in {:?}: Trying to continue.", path);
             }
         },
-    )
+    )?;
+    for (_str_path, file) in mapstrfile.iter_mut() {
+        unwrap!(file.flush());
+    }
+    Ok(())
 }
