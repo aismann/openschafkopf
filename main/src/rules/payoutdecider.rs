@@ -68,7 +68,7 @@ fn payouthints_point_based(
     _ahand: &EnumMap<EPlayerIndex, SHand>,
     rulestatecache: &SRuleStateCache,
     playerparties: &impl TPlayerParties,
-    fn_payout_one_player_if_premature_winner: impl FnOnce(isize, bool)->isize,
+    fn_payout_one_player_if_premature_winner: impl FnOnce(isize)->isize,
 ) -> EnumMap<EPlayerIndex, (Option<isize>, Option<isize>)> {
     let mapbn_points = debug_verify_eq!(
         EPlayerIndex::values()
@@ -80,21 +80,21 @@ fn payouthints_point_based(
                 mapbn_points[/*b_primary*/playerparties.is_primary_party(epi_winner)] += card_points::points_stich(stich);
             }))
     );
-    let internal_payouthints = |b_primary_party_wins| {
+    let internal_payouthints = |b_premature_winner_is_primary_party| {
         internal_payout(
-            fn_payout_one_player_if_premature_winner(mapbn_points[/*b_primary*/true], b_primary_party_wins),
+            fn_payout_one_player_if_premature_winner(mapbn_points[b_premature_winner_is_primary_party]),
             playerparties,
-            b_primary_party_wins,
+            b_premature_winner_is_primary_party,
         )
             .map(|n_payout| {
                  assert_ne!(0, *n_payout);
                  tpl_flip_if(0<*n_payout, (None, Some(*n_payout)))
             })
     };
-    if /*b_primary_party_wins*/ mapbn_points[/*b_primary*/true] >= pointstowin.points_to_win() {
-        internal_payouthints(/*b_primary_party_wins*/true)
+    if /*b_premature_winner_is_primary_party*/ mapbn_points[/*b_primary*/true] >= pointstowin.points_to_win() {
+        internal_payouthints(/*b_premature_winner_is_primary_party*/true)
     } else if mapbn_points[/*b_primary*/false] > 120-pointstowin.points_to_win() {
-        internal_payouthints(/*b_primary_party_wins*/false)
+        internal_payouthints(/*b_premature_winner_is_primary_party*/false)
     } else {
         EPlayerIndex::map_from_fn(|_epi| (None, None))
     }
@@ -158,7 +158,7 @@ impl<
             ahand,
             rulestatecache,
             playerparties,
-            /*fn_payout_one_player_if_premature_winner*/|_n_points_primary_party, _b_primary_party_wins| {
+            /*fn_payout_one_player_if_premature_winner*/|_n_points_premature_winner| {
                 self.payoutparams.n_payout_base
             },
         )
