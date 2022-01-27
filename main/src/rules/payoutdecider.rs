@@ -85,9 +85,9 @@ fn payouthints_point_based(
                 mapbn_points[/*b_primary*/playerparties.is_primary_party(epi_winner)] += card_points::points_stich(stich);
             }))
     );
-    let internal_payouthints = |b_premature_winner_is_primary_party| {
+    let internal_payouthints = |n_points_primary_party, b_premature_winner_is_primary_party| {
         internal_payout(
-            fn_payout_one_player_if_premature_winner(mapbn_points[b_premature_winner_is_primary_party]),
+            fn_payout_one_player_if_premature_winner(n_points_primary_party),
             playerparties,
             b_premature_winner_is_primary_party,
         )
@@ -97,9 +97,18 @@ fn payouthints_point_based(
             })
     };
     if /*b_premature_winner_is_primary_party*/ mapbn_points[/*b_primary*/true] >= pointstowin.points_to_win() {
-        internal_payouthints(/*b_premature_winner_is_primary_party*/true)
+        internal_payouthints(
+            /*minimum number of points that primary party can reach*/mapbn_points[/*b_primary*/true],
+            /*b_premature_winner_is_primary_party*/true,
+        )
     } else if mapbn_points[/*b_primary*/false] > 120-pointstowin.points_to_win() {
-        internal_payouthints(/*b_premature_winner_is_primary_party*/false)
+        // mapbn_points[/*b_primary*/false] > 120-pointstowin.points_to_win()
+        // pointstowin.points_to_win() > 120-mapbn_points[/*b_primary*/false]
+        // 120-mapbn_points[/*b_primary*/false] < pointstowin.points_to_win()
+        internal_payouthints(
+            /*maximum number of points that primary party can reach*/120-mapbn_points[/*b_primary*/false],
+            /*b_premature_winner_is_primary_party*/false,
+        )
     } else {
         EPlayerIndex::map_from_fn(|_epi| (None, None))
     }
@@ -163,7 +172,7 @@ impl<
             ahand,
             rulestatecache,
             playerparties,
-            /*fn_payout_one_player_if_premature_winner*/|_n_points_premature_winner| {
+            /*fn_payout_one_player_if_premature_winner*/|_n_points_primary_party| {
                 self.payoutparams.n_payout_base
             },
         )
