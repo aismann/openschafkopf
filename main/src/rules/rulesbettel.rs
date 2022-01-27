@@ -1,6 +1,6 @@
 use crate::primitives::*;
 use crate::rules::{
-    payoutdecider::internal_payout, rulessolo::TPayoutDecider, trumpfdecider::*, *,
+    payoutdecider::{internal_payout, TPayoutDecider}, trumpfdecider::*, *,
 };
 use crate::util::*;
 use std::marker::PhantomData;
@@ -48,7 +48,7 @@ struct SPayoutDeciderBettel {
     n_payout_base : isize,
 }
 
-impl TPayoutDecider for SPayoutDeciderBettel {
+impl TPayoutDecider<SPlayerParties13> for SPayoutDeciderBettel {
     fn payout<Rules>(
         &self,
         if_dbg_else!({rules}{_rules}): &Rules,
