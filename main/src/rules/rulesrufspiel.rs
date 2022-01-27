@@ -57,12 +57,16 @@ pub struct SPlayerParties22 {
     aepi_pri: [EPlayerIndex; 2],
 }
 
+fn playerparties22_multiplier() -> isize {
+    1
+}
+
 impl TPlayerParties for SPlayerParties22 {
     fn is_primary_party(&self, epi: EPlayerIndex) -> bool {
         self.aepi_pri[0]==epi || self.aepi_pri[1]==epi
     }
     fn multiplier(&self, _epi: EPlayerIndex) -> isize {
-        1
+        playerparties22_multiplier()
     }
 }
 
@@ -218,13 +222,15 @@ impl<PayoutDecider: TPayoutDecider<SPlayerParties22>> TRules for SRulesRufspielG
             }) as Box<dyn TRules>,
             Box::new(move |stichseq: &SStichSequence, hand: &SHand, f_payout: f32| {
                 let epi = unwrap!(stichseq.current_stich().current_playerindex());
-                let b_primary =
-                    epi==epi_self
-                    || stichseq.visible_stichs().iter().filter_map(|stich| stich.get(epi))
-                        .chain(hand.cards().iter())
-                        .find(|&card| *card==card_rufsau)
-                        .is_some();
-                normalized_points_to_points(f_payout, &SPointsToWin61{}, b_primary)
+                normalized_points_to_points(
+                    f_payout / playerparties22_multiplier().as_num::<f32>(),
+                    &SPointsToWin61{},
+                    /*b_primary*/ epi==epi_self
+                        || stichseq.visible_stichs().iter().filter_map(|stich| stich.get(epi))
+                            .chain(hand.cards().iter())
+                            .find(|&card| *card==card_rufsau)
+                            .is_some(),
+                )
             }) as Box<dyn Fn(&SStichSequence, &SHand, f32)->f32>,
         ))
     }
