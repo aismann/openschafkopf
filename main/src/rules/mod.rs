@@ -383,7 +383,10 @@ pub trait TRules : fmt::Display + TAsRules + Sync + fmt::Debug + TRulesBoxClone 
         None
     }
 
-    fn points_as_payout(&self) -> Option<Box<dyn TRules>> {
+    fn points_as_payout(&self) -> Option<(
+        Box<dyn TRules>,
+        Box<dyn Fn(&SStichSequence, &SHand, f32)->f32>,
+    )> {
         None
     }
 }

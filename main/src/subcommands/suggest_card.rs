@@ -30,7 +30,7 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             b_verbose: bool,
         ) -> Result<(), Error> {
             let clapmatches = self.clapmatches;
-            let orules_points_as_payout = if clapmatches.is_present("points") {
+            let otplrulesfn_points_as_payout = if clapmatches.is_present("points") {
                 if let Some(rules) = rules_raw.points_as_payout() {
                     Some(rules)
                 } else {
@@ -42,7 +42,9 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             } else {
                 None
             };
-            let rules = if let Some(rules) = &orules_points_as_payout {
+            let mut ofn_payout_to_points = None;
+            let rules = if let Some((rules, fn_payout_to_points)) = &otplrulesfn_points_as_payout {
+                ofn_payout_to_points = Some(fn_payout_to_points);
                 rules.as_ref()
             } else {
                 rules_raw
@@ -129,19 +131,30 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             let mut af_min = [f32::MAX; N_COLUMNS];
             let mut af_max = [f32::MIN; N_COLUMNS];
             for (card, minmax) in veccardminmax {
+                let fn_payout_to_primary_points = |f_payout| {
+                    if let Some(fn_payout_to_points) = &ofn_payout_to_points {
+                        fn_payout_to_points(
+                            &determinebestcard.stichseq,
+                            &determinebestcard.hand_fixed,
+                            f_payout
+                        )
+                    } else {
+                        f_payout
+                    }
+                };
                 let af = [
-                    minmax.t_min.min().as_num::<f32>(),
-                    minmax.t_min.avg(),
-                    minmax.t_min.max().as_num::<f32>(),
-                    minmax.t_selfish_min.min().as_num::<f32>(),
-                    minmax.t_selfish_min.avg(),
-                    minmax.t_selfish_min.max().as_num::<f32>(),
-                    minmax.t_selfish_max.min().as_num::<f32>(),
-                    minmax.t_selfish_max.avg(),
-                    minmax.t_selfish_max.max().as_num::<f32>(),
-                    minmax.t_max.min().as_num::<f32>(),
-                    minmax.t_max.avg(),
-                    minmax.t_max.max().as_num::<f32>(),
+                    fn_payout_to_primary_points(minmax.t_min.min().as_num::<f32>()),
+                    fn_payout_to_primary_points(minmax.t_min.avg()),
+                    fn_payout_to_primary_points(minmax.t_min.max().as_num::<f32>()),
+                    fn_payout_to_primary_points(minmax.t_selfish_min.min().as_num::<f32>()),
+                    fn_payout_to_primary_points(minmax.t_selfish_min.avg()),
+                    fn_payout_to_primary_points(minmax.t_selfish_min.max().as_num::<f32>()),
+                    fn_payout_to_primary_points(minmax.t_selfish_max.min().as_num::<f32>()),
+                    fn_payout_to_primary_points(minmax.t_selfish_max.avg()),
+                    fn_payout_to_primary_points(minmax.t_selfish_max.max().as_num::<f32>()),
+                    fn_payout_to_primary_points(minmax.t_max.min().as_num::<f32>()),
+                    fn_payout_to_primary_points(minmax.t_max.avg()),
+                    fn_payout_to_primary_points(minmax.t_max.max().as_num::<f32>()),
                 ];
                 let astr = [
                     format!("{} ", af[0]),

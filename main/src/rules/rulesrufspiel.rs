@@ -204,11 +204,28 @@ impl<PayoutDecider: TPayoutDecider<SPlayerParties22>> TRules for SRulesRufspielG
         Some(Box::new(SAIRufspiel::new(self)))
     }
 
-    fn points_as_payout(&self) -> Option<Box<dyn TRules>> {
-        Some(Box::new(SRulesRufspielGeneric{
-            epi: self.epi,
-            efarbe: self.efarbe,
-            payoutdecider: SPayoutDeciderPointsAsPayout::new(SPointsToWin61{}),
-        }) as Box<dyn TRules>)
+    fn points_as_payout(&self) -> Option<(
+        Box<dyn TRules>,
+        Box<dyn Fn(&SStichSequence, &SHand, f32)->f32>,
+    )> {
+        let epi_self = self.epi;
+        let card_rufsau = self.rufsau();
+        Some((
+            Box::new(SRulesRufspielGeneric{
+                epi: self.epi,
+                efarbe: self.efarbe,
+                payoutdecider: SPayoutDeciderPointsAsPayout::new(SPointsToWin61{}),
+            }) as Box<dyn TRules>,
+            Box::new(move |stichseq: &SStichSequence, hand: &SHand, f_payout: f32| {
+                let epi = unwrap!(stichseq.current_stich().current_playerindex());
+                let b_primary =
+                    epi==epi_self
+                    || stichseq.visible_stichs().iter().filter_map(|stich| stich.get(epi))
+                        .chain(hand.cards().iter())
+                        .find(|&card| *card==card_rufsau)
+                        .is_some();
+                normalized_points_to_points(f_payout, &SPointsToWin61{}, b_primary)
+            }) as Box<dyn Fn(&SStichSequence, &SHand, f32)->f32>,
+        ))
     }
 }
