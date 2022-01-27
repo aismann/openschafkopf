@@ -13,7 +13,7 @@ pub struct SRulesRufspielGeneric<PayoutDecider: TPayoutDecider<SPlayerParties22>
 
 pub type SRulesRufspiel = SRulesRufspielGeneric<SPayoutDeciderPointBased<SPointsToWin61>>;
 
-impl fmt::Display for SRulesRufspiel {
+impl<PayoutDecider: TPayoutDecider<SPlayerParties22>> fmt::Display for SRulesRufspielGeneric<PayoutDecider> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "Rufspiel mit der {}-Sau", self.efarbe)
     }
@@ -24,7 +24,7 @@ pub type STrumpfDeciderRufspiel = STrumpfDeciderSchlag<
     SStaticSchlagUnter, 
     SStaticFarbeHerz>>;
 
-impl SRulesRufspiel {
+impl<PayoutDecider: TPayoutDecider<SPlayerParties22>> SRulesRufspielGeneric<PayoutDecider> {
     pub fn new(epi: EPlayerIndex, efarbe: EFarbe, payoutparams: SPayoutDeciderParams) -> SRulesRufspiel {
         assert_ne!(efarbe, EFarbe::Herz);
         SRulesRufspiel {
@@ -43,13 +43,13 @@ impl SRulesRufspiel {
     }
 }
 
-impl TActivelyPlayableRules for SRulesRufspiel {
+impl<PayoutDecider: TPayoutDecider<SPlayerParties22>> TActivelyPlayableRules for SRulesRufspielGeneric<PayoutDecider> {
     fn priority(&self) -> VGameAnnouncementPriority {
         VGameAnnouncementPriority::RufspielLike
     }
 }
 
-impl TRulesNoObj for SRulesRufspiel {
+impl<PayoutDecider: TPayoutDecider<SPlayerParties22>> TRulesNoObj for SRulesRufspielGeneric<PayoutDecider> {
     impl_rules_trumpf_noobj!(STrumpfDeciderRufspiel);
 }
 
@@ -66,7 +66,7 @@ impl TPlayerParties for SPlayerParties22 {
     }
 }
 
-impl TRules for SRulesRufspiel {
+impl<PayoutDecider: TPayoutDecider<SPlayerParties22>> TRules for SRulesRufspielGeneric<PayoutDecider> {
     impl_rules_trumpf!();
 
     fn can_be_played(&self, hand: SFullHand) -> bool {
@@ -202,5 +202,13 @@ impl TRules for SRulesRufspiel {
 
     fn rulespecific_ai<'rules>(&'rules self) -> Option<Box<dyn TRuleSpecificAI + 'rules>> {
         Some(Box::new(SAIRufspiel::new(self)))
+    }
+
+    fn points_as_payout(&self) -> Option<Box<dyn TRules>> {
+        Some(Box::new(SRulesRufspielGeneric{
+            epi: self.epi,
+            efarbe: self.efarbe,
+            payoutdecider: SPayoutDeciderPointsAsPayout::new(SPointsToWin61{}),
+        }) as Box<dyn TRules>)
     }
 }

@@ -12,7 +12,7 @@ pub fn subcommand(str_subcommand: &'static str) -> clap::App {
         .arg(clap::Arg::with_name("branching").long("branching").takes_value(true))
         .arg(clap::Arg::with_name("prune").long("prune").takes_value(true))
         .arg(clap::Arg::with_name("visualize").long("visualize").takes_value(true))
-        // TODO Add possibility to request analysis by points/stichs
+        .arg(clap::Arg::with_name("points").long("points"))
 }
 
 pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
@@ -22,7 +22,7 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
     impl<'argmatches> TWithCommonArgs for SWithCommonArgs<'argmatches> {
         fn call(
             self,
-            rules: &dyn TRules,
+            rules_raw: &dyn TRules,
             hand_fixed: SHand,
             itahand: impl Iterator<Item=EnumMap<EPlayerIndex, SHand>>+Send,
             eremainingcards: ERemainingCards,
@@ -30,6 +30,23 @@ pub fn run(clapmatches: &clap::ArgMatches) -> Result<(), Error> {
             b_verbose: bool,
         ) -> Result<(), Error> {
             let clapmatches = self.clapmatches;
+            let orules_points_as_payout = if clapmatches.is_present("points") {
+                if let Some(rules) = rules_raw.points_as_payout() {
+                    Some(rules)
+                } else {
+                    if b_verbose { // TODO? dispatch statically
+                        println!("Rules {} do not support point based variant.", rules_raw);
+                    }
+                    None
+                }
+            } else {
+                None
+            };
+            let rules = if let Some(rules) = &orules_points_as_payout {
+                rules.as_ref()
+            } else {
+                rules_raw
+            };
             let epi_fixed = determinebestcard.epi_fixed;
             let determinebestcardresult = { // we are interested in payout => single-card-optimization useless
                 macro_rules! forward{(($func_filter_allowed_cards: expr), ($foreachsnapshot: ident), $fn_visualizer: expr,) => {{ // TODORUST generic closures

@@ -382,6 +382,10 @@ pub trait TRules : fmt::Display + TAsRules + Sync + fmt::Debug + TRulesBoxClone 
     fn rulespecific_ai<'rules>(&'rules self) -> Option<Box<dyn TRuleSpecificAI + 'rules>> {
         None
     }
+
+    fn points_as_payout(&self) -> Option<Box<dyn TRules>> {
+        None
+    }
 }
 
 make_upcastable!(TAsRules, TRules);

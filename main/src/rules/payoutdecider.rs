@@ -16,7 +16,7 @@ pub struct SPayoutDeciderParams {
 }
 
 
-pub trait TPointsToWin : Sync + 'static + Clone + fmt::Debug {
+pub trait TPointsToWin : Sync + Send + 'static + Clone + fmt::Debug {
     fn points_to_win(&self) -> isize;
 }
 
@@ -32,6 +32,11 @@ impl TPointsToWin for SPointsToWin61 {
 #[derive(Clone, Debug, new)]
 pub struct SPayoutDeciderPointBased<PointsToWin> {
     pub payoutparams : SPayoutDeciderParams,
+    pub pointstowin: PointsToWin,
+}
+
+#[derive(Clone, Debug, new)]
+pub struct SPayoutDeciderPointsAsPayout<PointsToWin> {
     pub pointstowin: PointsToWin,
 }
 
@@ -165,6 +170,58 @@ impl<
     }
 }
 
+impl<
+    PointsToWin: TPointsToWin,
+    PlayerParties: TPlayerParties,
+> TPayoutDecider<PlayerParties> for SPayoutDeciderPointsAsPayout<PointsToWin> {
+    fn payout<Rules>(
+        &self,
+        rules: &Rules,
+        rulestatecache: &SRuleStateCache,
+        gamefinishedstiche: SStichSequenceGameFinished,
+        playerparties: &PlayerParties,
+    ) -> EnumMap<EPlayerIndex, isize>
+        where 
+            Rules: TRulesNoObj,
+    {
+        payout_point_based(
+            &self.pointstowin,
+            rules,
+            rulestatecache,
+            gamefinishedstiche,
+            playerparties,
+            /*fn_payout_one_player*/|n_points_primary_party, b_primary_party_wins| {
+                if b_primary_party_wins {
+                    n_points_primary_party
+                } else {
+                    120 - n_points_primary_party
+                }
+            },
+        )
+    }
+
+    fn payouthints<Rules: TRulesNoObj>(
+        &self,
+        rules: &Rules,
+        stichseq: &SStichSequence,
+        ahand: &EnumMap<EPlayerIndex, SHand>,
+        rulestatecache: &SRuleStateCache,
+        playerparties: &PlayerParties,
+    ) -> EnumMap<EPlayerIndex, (Option<isize>, Option<isize>)> {
+        payouthints_point_based(
+            &self.pointstowin,
+            rules,
+            stichseq,
+            ahand,
+            rulestatecache,
+            playerparties,
+            /*fn_payout_one_player_if_premature_winner*/|n_points_premature_winner| {
+                n_points_premature_winner
+            },
+        )
+    }
+}
+
 impl SLaufendeParams {
     pub fn payout_laufende<Rules: TRulesNoObj, PlayerParties: TPlayerParties>(&self, rulestatecache: &SRuleStateCache, gamefinishedstiche: SStichSequenceGameFinished, playerparties: &PlayerParties) -> isize {
         let ekurzlang = gamefinishedstiche.get().kurzlang();
@@ -204,7 +261,7 @@ pub fn internal_payout(n_payout_single_player: isize, playerparties: &impl TPlay
     })
 }
 
-pub trait TPayoutDecider<PlayerParties> : Sync + 'static + Clone + fmt::Debug {
+pub trait TPayoutDecider<PlayerParties> : Sync + Send + 'static + Clone + fmt::Debug {
     fn payout<Rules>(
         &self,
         rules: &Rules,
