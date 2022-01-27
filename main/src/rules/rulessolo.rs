@@ -11,6 +11,17 @@ pub trait TPayoutDeciderSoloLike : Sync + 'static + Clone + fmt::Debug + TPayout
     fn priorityinfo(&self) -> String {
         "".to_string()
     }
+
+    fn points_as_payout<
+        StaticEPI: TStaticValue<EPlayerIndex>,
+        TrumpfDecider: TTrumpfDecider,
+        PayoutDecider: TPayoutDeciderSoloLike
+    >(&self, _rules: &SRulesSoloLike<StaticEPI, TrumpfDecider, PayoutDecider>) -> Option<(
+        Box<dyn TRules>,
+        Box<dyn Fn(&SStichSequence, &SHand, f32)->f32>,
+    )> {
+        None
+    }
 }
 
 impl TPointsToWin for VGameAnnouncementPrioritySoloLike {
@@ -55,6 +66,41 @@ impl TPayoutDeciderSoloLike for SPayoutDeciderPointBased<VGameAnnouncementPriori
                 }
             },
         }
+    }
+
+    fn points_as_payout<
+        StaticEPI: TStaticValue<EPlayerIndex>,
+        TrumpfDecider: TTrumpfDecider,
+        PayoutDecider: TPayoutDeciderSoloLike
+    >(&self, rules: &SRulesSoloLike<StaticEPI, TrumpfDecider, PayoutDecider>) -> Option<(
+        Box<dyn TRules>,
+        Box<dyn Fn(&SStichSequence, &SHand, f32)->f32>,
+    )> {
+        //assert_eq!(self, rules.payoutdecider); // TODO
+        let pointstowin = self.pointstowin.clone();
+        Some((
+            Box::new(SRulesSoloLike{
+                str_name: rules.str_name.clone(),
+                phantom: rules.phantom,
+                payoutdecider: SPayoutDeciderPointsAsPayout{
+                    pointstowin: pointstowin.clone(),
+                },
+            }) as Box<dyn TRules>,
+            Box::new(move |stichseq: &SStichSequence, _hand: &SHand, f_payout: f32| {
+                let epi = unwrap!(stichseq.current_stich().current_playerindex());
+                normalized_points_to_points(
+                    f_payout / SPlayerParties13::new(StaticEPI::VALUE).multiplier(epi).as_num::<f32>(),
+                    &pointstowin,
+                    /*b_primary*/epi==StaticEPI::VALUE,
+                )
+            }) as Box<dyn Fn(&SStichSequence, &SHand, f32)->f32>,
+        )
+    )}
+}
+
+impl TPayoutDeciderSoloLike for SPayoutDeciderPointsAsPayout<VGameAnnouncementPrioritySoloLike> {
+    fn priority(&self) -> VGameAnnouncementPriority {
+        VGameAnnouncementPriority::SoloLike(self.pointstowin.clone())
     }
 }
 
@@ -255,6 +301,13 @@ impl<StaticEPI: TStaticValue<EPlayerIndex>, TrumpfDecider: TTrumpfDecider, Payou
 impl<StaticEPI: TStaticValue<EPlayerIndex>, TrumpfDecider: TTrumpfDecider, PayoutDecider: TPayoutDeciderSoloLike> TRules for SRulesSoloLike<StaticEPI, TrumpfDecider, PayoutDecider> {
     impl_rules_trumpf!();
     impl_single_play!();
+
+    fn points_as_payout(&self) -> Option<(
+        Box<dyn TRules>,
+        Box<dyn Fn(&SStichSequence, &SHand, f32)->f32>,
+    )> {
+        self.payoutdecider.points_as_payout(self)
+    }
 }
 
 impl<StaticEPI: TStaticValue<EPlayerIndex>, TrumpfDecider: TTrumpfDecider, PayoutDecider: TPayoutDeciderSoloLike> SRulesSoloLike<StaticEPI, TrumpfDecider, PayoutDecider> {
