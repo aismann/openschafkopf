@@ -44,7 +44,7 @@ fn payout_point_based (
     pointstowin: &impl TPointsToWin,
     if_dbg_else!({rules}{_rules}): &impl TRulesNoObj,
     rulestatecache: &SRuleStateCache,
-    gamefinishedstiche: SStichSequenceGameFinished,
+    if_dbg_else!({gamefinishedstiche}{_gamefinishedstiche}): SStichSequenceGameFinished,
     playerparties: &impl TPlayerParties,
     fn_payout_one_player: impl FnOnce(isize, bool)->isize,
 ) -> EnumMap<EPlayerIndex, isize> {
@@ -199,7 +199,7 @@ fn primary_points_to_normalized_points(n_points_primary_party: isize, pointstowi
     n_points_normalized
 }
 
-pub fn normalized_points_to_primary_points(f_points_normalized: f32, pointstowin: &impl TPointsToWin) -> f32 {
+fn normalized_points_to_primary_points(f_points_normalized: f32, pointstowin: &impl TPointsToWin) -> f32 {
     (f_points_normalized - 1. + 2.*pointstowin.points_to_win().as_num::<f32>()) / 2.
 }
 
